@@ -16,7 +16,7 @@
 #include "rsi_server.h"
 #include "sysinfo.h"
 
-VekaServer::VekaServer(int port, SysInfo *sysinfo){
+RsiServer::RsiServer(int port, SysInfo *sysinfo){
     sysinfo = sysinfo;
     int server_sockfd = listen_port(port);
     while(1){
@@ -39,7 +39,7 @@ VekaServer::VekaServer(int port, SysInfo *sysinfo){
     }
 }
 
-int VekaServer::listen_port(int port){
+int RsiServer::listen_port(int port){
     int sockfd;
     struct sockaddr_in server_addr;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -61,7 +61,7 @@ int VekaServer::listen_port(int port){
 
     return sockfd;
 }
-int VekaServer::accept_client(int server_sockfd){
+int RsiServer::accept_client(int server_sockfd){
     int client_sockfd;
     struct sockaddr_in client_addr;
     socklen_t sin_size = sizeof(struct sockaddr_in);
@@ -70,7 +70,7 @@ int VekaServer::accept_client(int server_sockfd){
     return client_sockfd;
 }
 
-int VekaServer::communicate(int client_sockfd){
+int RsiServer::communicate(int client_sockfd){
     int read_num;
     char buf[4096];
 again:
