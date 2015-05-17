@@ -14,8 +14,9 @@
 #include <unistd.h>
 #include <iostream>
 #include <sys/wait.h>
-#include "veka_server.h"
+#include "rsi_server.h"
 #include "sysinfo.h"
+
 int main(int argc, char *argv[])
 {
     char *cmd;
@@ -29,14 +30,14 @@ int main(int argc, char *argv[])
     int port = 7209;
 
     std::map<std::string, std::string> config;
-    if(!ReadConfig("veka_server.config", config)){
+    if(!ReadConfig("rsi_server.config", config)){
         std::map<std::string, std::string>::iterator it = config.find("port");
         if(it != config.end())
             port = atoi((it->second).c_str());
     }
 
     SysInfo sysinfo;
-    VekaServer veka_server(port, &sysinfo);
+    RsiServer rsi_server(port, &sysinfo);
     
     return 0;
 }
