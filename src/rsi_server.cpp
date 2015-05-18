@@ -17,7 +17,7 @@
 #include "sysinfo.h"
 
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
-    sysinfo = sysinfo;
+    this->sysinfo = sysinfo;
     int server_sockfd = listen_port(port);
     while(1){
         int client_sockfd = accept_client(server_sockfd);
@@ -44,6 +44,7 @@ int RsiServer::listen_port(int port){
     struct sockaddr_in server_addr;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("socket error");
+        exit(-1);
     }
 
     bzero(&server_addr, sizeof(struct sockaddr_in));
@@ -54,11 +55,13 @@ int RsiServer::listen_port(int port){
     if(bind(sockfd, (struct sockaddr *)(&server_addr), sizeof(struct sockaddr)) < 0)
     {
         perror("bind error");
+        exit(-1);
     }
     /* listen: 监听绑定的端口 */
-    if(listen(sockfd, 1) < 0)
+    if(listen(sockfd, 1) < 0){
         perror("listen error");
-
+        exit(-1);
+    }
     return sockfd;
 }
 int RsiServer::accept_client(int server_sockfd){
@@ -76,9 +79,24 @@ int RsiServer::communicate(int client_sockfd){
 again:
     if((read_num = read(client_sockfd, buf, 4095))> 0){
         buf[read_num] = '\0';
-
+        std::cout << buf << std::endl;
+        
         if(strcmp(buf, "GET_HOST_MEM_USAGE") == 0){
             std::string response = sysinfo->get_host_mem_usage();
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        else if(strcmp(buf, "GET_HOST_NODE_INFO") == 0){
+            std::string response = sysinfo->get_host_node_info();
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        else if(strcmp(buf, "GET_VM_INFO") == 0){
+            std::string response = sysinfo->get_vm_info();
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;

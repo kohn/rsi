@@ -1,17 +1,14 @@
-#include "get_config.h"
+#include "tools.h"
 #include <fstream>
 #include <iostream>
-using namespace std;
 
-bool IsSpace(char c)
-{
+bool Tools::IsSpace(char c){
     if (' ' == c || '\t' == c)
         return true;
     return false;
 }
 
-bool IsCommentChar(char c)
-{
+bool Tools::IsCommentChar(char c){
     switch(c) {
     case COMMENT_CHAR:
         return true;
@@ -20,26 +17,25 @@ bool IsCommentChar(char c)
     }
 }
 
-void Trim(string & str)
+void Tools::Trim(std::string & str)
 {
     if (str.empty()) {
         return;
     }
-    int start_pos, end_pos;
-    unsigned int i;
-    for (i = 0; i < str.size(); ++i) {
+    
+    int i, start_pos, end_pos;
+    for (i = 0; i < (int)str.size(); ++i) {
         if (!IsSpace(str[i])) {
             break;
         }
     }
-    if (i == str.size()) { // 全部是空白字符串
+    if (i == (int)str.size()) { // 全部是空白字符串
         str = "";
         return;
     }
     
     start_pos = i;
-    
-    for (i = str.size() - 1; i >= 0; --i) {
+    for (i = (int)str.size() - 1; i >= 0; --i) {
         if (!IsSpace(str[i])) {
             break;
         }
@@ -49,7 +45,7 @@ void Trim(string & str)
     str = str.substr(start_pos, end_pos - start_pos + 1);
 }
 
-bool AnalyseLine(const string & line, string & key, string & value)
+bool Tools::AnalyseLine(const std::string & line, std::string & key, std::string & value)
 {
     if (line.empty())
         return false;
@@ -60,7 +56,7 @@ bool AnalyseLine(const string & line, string & key, string & value)
         }
         end_pos = pos - 1;
     }
-    string new_line = line.substr(start_pos, start_pos + 1 - end_pos);  // 预处理，删除注释部分
+    std::string new_line = line.substr(start_pos, start_pos + 1 - end_pos);  // 预处理，删除注释部分
     
     if ((pos = new_line.find('=')) == -1)
         return false;  // 没有=号
@@ -76,28 +72,27 @@ bool AnalyseLine(const string & line, string & key, string & value)
     return true;
 }
 
-bool ReadConfig(const string & filename, map<string, string> & m)
+bool Tools::ReadConfig(const std::string & filename, std::map<std::string, std::string> & m)
 {
     m.clear();
-    ifstream infile(filename.c_str());
+    std::ifstream infile(filename.c_str());
     if (!infile) {
         return false;
     }
-    string line, key, value;
-    while (getline(infile, line)) {
+    std::string line, key, value;
+    while (std::getline(infile, line)) {
         if (AnalyseLine(line, key, value)) {
             m[key] = value;
         }
     }
-    
     infile.close();
     return true;
 }
 
-void PrintConfig(const map<string, string> & m)
+void Tools::PrintConfig(const std::map<std::string, std::string> & m)
 {
-    map<string, string>::const_iterator mite = m.begin();
+    std::map<std::string, std::string>::const_iterator mite = m.begin();
     for (; mite != m.end(); ++mite) {
-        cout << mite->first << "=" << mite->second << endl;
+        std::cout << mite->first << "=" << mite->second << std::endl;
     }
 }

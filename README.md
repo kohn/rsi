@@ -4,5 +4,5 @@ RSI attempts to work as a server and responses to requests with system's status 
 # Dependencies
 1. CMake
 2. libvirt
-3. libvsf
+3. libvsf(included in lib/)
 4. libnuma

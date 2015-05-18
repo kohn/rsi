@@ -1,4 +1,3 @@
-#include "get_config.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,7 +7,6 @@
 #include <netinet/in.h>
 #include <cerrno>
 #include <arpa/inet.h>
-#include "sysinfo.h"
 #include <set>
 #include <sstream>
 #include <unistd.h>
@@ -16,6 +14,7 @@
 #include <sys/wait.h>
 #include "rsi_server.h"
 #include "sysinfo.h"
+#include "tools.h"
 
 int main(int argc, char *argv[])
 {
@@ -24,13 +23,14 @@ int main(int argc, char *argv[])
         cmd = argv[0];
     else
         cmd++;
-    // TODO: debug模式先不daemon
-    // daemonize(cmd);
+    
+    //daemon(0, 0);
 
     int port = 7209;
 
     std::map<std::string, std::string> config;
-    if(!ReadConfig("rsi_server.config", config)){
+    Tools tools;
+    if(!tools.ReadConfig("rsi_server.config", config)){
         std::map<std::string, std::string>::iterator it = config.find("port");
         if(it != config.end())
             port = atoi((it->second).c_str());
