@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     else
         cmd++;
     
-    //daemon(0, 0);
+    daemon(0, 0);
 
     int port = 7209;
 

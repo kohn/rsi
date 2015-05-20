@@ -1,13 +1,8 @@
 #ifndef SYSINFO_H
 #define SYSINFO_H
 #include <string>
-#include "vsf.h"
 class SysInfo
 {
-private:
-    void get_mem_info(long long *total_mem, long long *free_mem);
-    Vsf* framework;
-    Host *host;
 public:
     SysInfo(){}
     /* {
