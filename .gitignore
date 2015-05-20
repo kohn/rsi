@@ -2,3 +2,4 @@ cp.sh
 src/Makefile
 src/cmake_install.cmake
 .gitignore
+deploy.sh

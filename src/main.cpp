@@ -13,7 +13,7 @@
 #include <iostream>
 #include <sys/wait.h>
 #include "rsi_server.h"
-#include "sysinfo.h"
+#include "native_implement_sysinfo.h"
 #include "tools.h"
 
 int main(int argc, char *argv[])
@@ -36,8 +36,8 @@ int main(int argc, char *argv[])
             port = atoi((it->second).c_str());
     }
 
-    SysInfo sysinfo;
-    RsiServer rsi_server(port, &sysinfo);
+    NativeImplementSysInfo native_sysinfo;
+    RsiServer rsi_server(port, &native_sysinfo);
     
     return 0;
 }
