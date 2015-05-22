@@ -1,5 +1,5 @@
-set (CMAKE_CPP_COMPILER g++)
-set (CMAKE_CXX_FLAGS_LIST 
+set(CMAKE_CXX_COMPILER g++)
+set(CMAKE_CXX_FLAGS_LIST 
   -Wall -Wextra -Wunused-variable -std=c++11 -L${PROJECT_SOURCE_DIR}/lib -g
   )
 string (REPLACE ";" " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_LIST}")

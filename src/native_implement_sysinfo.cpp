@@ -3,6 +3,9 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <fstream>
+#include <unistd.h>
+#include "globals.h"
 #include "json.hpp"
 using json = nlohmann::json;
 
@@ -53,11 +56,14 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
             continue;
         }
         std::cout << cpumask->size << " " << numa_node_size(i, 0) << " " << *(cpumask->maskp) << std::endl;
-        int cpunr = numa_num_configured_cpus();
-        for(int i=0; i<cpunr; i++){
-            if( *(cpumask->maskp) & ((long long)1 << i) ){
+        //int cpunr = numa_num_configured_cpus();
+        for(size_t i=0; i<cpumask->size; i++){
+            if(numa_bitmask_isbitset(cpumask, i)){
                 v.push_back(i);
             }
+            // if( *(cpumask->maskp) & ((long long)1 << i) ){
+            //     v.push_back(i);
+            // }
         }
         numa_free_cpumask(cpumask);
         m["cpu"] = v;
@@ -85,10 +91,9 @@ std::string NativeImplementSysInfo::get_host_node_info(){
     char buf[64];
     j["node_num"] = v.size();
     j["nodes"] = json::object();
-    for(unsigned int i=0; i < v.size(); i++){ // i: node id
-        sprintf(buf, "%u",  i);      // buf: string of node id
+    for(size_t i=0; i < v.size(); i++){ // i: node id
+        sprintf(buf, "%lu",  i);      // buf: string of node id
         j["nodes_id"].push_back(buf);
-        
         std::map<std::string, std::vector<int> > m = v[i];
         std::vector<int> mem = m["mem"];
         std::vector<int> cpu = m["cpu"];
@@ -96,7 +101,7 @@ std::string NativeImplementSysInfo::get_host_node_info(){
         j["nodes"][buf]["node_mem_total"] = mem[0];
         j["nodes"][buf]["node_mem_free"] = mem[1];
         json cores;
-        for(unsigned int j=0; j<cpu.size(); j++){
+        for(size_t j=0; j<cpu.size(); j++){
             cores.push_back(cpu[j]);
         }
         j["nodes"][buf]["cores"] = cores;
@@ -105,9 +110,48 @@ std::string NativeImplementSysInfo::get_host_node_info(){
     return j.dump();
 }
 
-
 std::string NativeImplementSysInfo::get_vm_info(){
     json j;
     j["hehe"] = 1;
+    return j.dump();
+}
+
+int NativeImplementSysInfo::get_cpu_info(unsigned long &cpu_idle, unsigned long &cpu_total){
+    std::ifstream ifs("/proc/stat");
+    if(!ifs.is_open()){
+        LOG_ERROR("could not find /proc/stat");
+        return -1;
+    }
+    std::string cpu;
+    unsigned long user, nice, sys, idle, iowait, irq, softirq;
+    ifs >> cpu >> user >> nice >> sys >> idle
+        >> iowait >> irq >> softirq;
+    ifs.close();
+
+    cpu_idle = idle;
+    cpu_total = user + nice + sys + idle + iowait + irq + softirq;
+    return 0;
+}
+std::string NativeImplementSysInfo::get_host_cpu_usage(){
+    json j;
+    unsigned long idle_time1, idle_time2, total_time1, total_time2;
+    if(get_cpu_info(idle_time1, total_time1) < 0){
+        j["status"] = "error";
+        return j.dump();
+    }
+    DEBUG("IDLE_TIME1", idle_time1);
+    DEBUG("TOTAL_TIME1", total_time1);
+    
+    usleep(10000);               // sleep for 10ms
+
+    if(get_cpu_info(idle_time2, total_time2) < 0){
+        j["status"] = "error";
+        return j.dump();
+    }
+    DEBUG("IDLE_TIME2", idle_time2);
+    DEBUG("TOTAL_TIME2", total_time2);
+    
+    j["cpus_usage"] = (1.0 - ((double)(idle_time2 - idle_time1)/(total_time2 - total_time1))) * 100.0;
+    j["status"] = "ok";
     return j.dump();
 }

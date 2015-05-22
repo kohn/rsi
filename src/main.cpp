@@ -18,13 +18,9 @@
 
 int main(int argc, char *argv[])
 {
-    char *cmd;
-    if((cmd = strrchr(argv[0], '/')) == NULL)
-        cmd = argv[0];
-    else
-        cmd++;
-    
-    daemon(0, 0);
+    if(argc == 2 && strcmp(argv[1], "-d") == 0){
+        daemon(0, 0);
+    }
 
     int port = 7209;
 

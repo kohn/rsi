@@ -101,6 +101,13 @@ again:
                 return -1;
             }
         }
+        else if(strcmp(buf, "GET_CPU_INFO") == 0){
+            std::string response = sysinfo->get_host_cpu_usage();
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
     }
     else if(read_num <0 && errno==EINTR){
         perror("read interrupt");
