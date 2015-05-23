@@ -14,7 +14,7 @@
 #include <sys/wait.h>
 #include "rsi_server.h"
 #include "sysinfo.h"
-
+#include "globals.h"
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
     this->sysinfo = sysinfo;
     int server_sockfd = listen_port(port);
@@ -31,9 +31,9 @@ RsiServer::RsiServer(int port, SysInfo *sysinfo){
         }
         else{
             close(client_sockfd);
-            std::cout << "pid: " << pid << std::endl;
+            DEBUG(pid);
             wait(NULL);   // 只允许一个连接
-            std::cout << "child exit" << std::endl;
+            LOG_INFO("Connection Closed");
         }
     }
 }
@@ -78,31 +78,37 @@ int RsiServer::communicate(int client_sockfd){
 again:
     if((read_num = read(client_sockfd, buf, 4095))> 0){
         buf[read_num] = '\0';
-        std::cout << buf << std::endl;
-        
         if(strcmp(buf, "GET_HOST_MEM_USAGE") == 0){
+            LOG_INFO("GET_HOST_MEM_USAGE");
             std::string response = sysinfo->get_host_mem_usage();
+            DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;
             }
         }
         else if(strcmp(buf, "GET_HOST_NODE_INFO") == 0){
+            LOG_INFO("GET_HOST_NODE_INFO");
             std::string response = sysinfo->get_host_node_info();
+            DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;
             }
         }
         else if(strcmp(buf, "GET_VM_INFO") == 0){
+            LOG_INFO("GET_VM_INFO");
             std::string response = sysinfo->get_vm_info();
+            DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;
             }
         }
         else if(strcmp(buf, "GET_CPU_INFO") == 0){
+            LOG_INFO("GET_CPU_INFO");
             std::string response = sysinfo->get_host_cpu_usage();
+            DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;

@@ -4,3 +4,5 @@ src/cmake_install.cmake
 .gitignore
 deploy.sh
 dependency/
+include/libvirt_sysinfo.h
+src/libvirt_sysinfo.cpp

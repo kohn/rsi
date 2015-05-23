@@ -10,7 +10,15 @@
 using json = nlohmann::json;
 
 NativeImplementSysInfo::NativeImplementSysInfo(){
-    
+    conn = virConnectOpen("qemu:///system");
+    if(conn == NULL){
+        LOG_ERROR("could not open libvirt connection");
+        exit(-1);
+    }
+}
+
+NativeImplementSysInfo::~NativeImplementSysInfo(){
+    virConnectClose(conn);
 }
 
 void NativeImplementSysInfo::get_mem_info(long long *total_mem, long long *free_mem){
@@ -45,8 +53,8 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
         long long node_free_space;
         long long node_total_space = numa_node_size64(i, &node_free_space);
         std::vector<int> v;
-        v.push_back((int)(node_total_space/1024.0/1024.0));
-        v.push_back((int)(node_free_space/1024.0/1024.0));
+        v.push_back((int)(node_total_space/1024));
+        v.push_back((int)(node_free_space/1024));
         m["mem"] = v;
 
         v.clear();
@@ -111,8 +119,30 @@ std::string NativeImplementSysInfo::get_host_node_info(){
 }
 
 std::string NativeImplementSysInfo::get_vm_info(){
-    json j;
-    j["hehe"] = 1;
+    json j = json::array();
+    int numDomains;
+    int *activeDomains;
+    numDomains = virConnectNumOfDomains(conn);
+    DEBUG(numDomains);
+    
+    activeDomains = (int *)malloc(sizeof(int) * numDomains);
+    numDomains = virConnectListDomains(conn, activeDomains, numDomains);
+    for (int i = 0 ; i < numDomains ; i++) {
+        virDomainPtr dom = virDomainLookupByID(conn, activeDomains[i]);
+        virDomainInfo info;
+        if(virDomainGetInfo(dom, &info) < 0){
+            LOG_ERROR("could not get domain info");
+            continue;
+        }
+        json j_dom;
+        j_dom["id"] = activeDomains[i];
+        DEBUG(info.maxMem);
+        j_dom["mem_total"] = info.maxMem;
+        j_dom["vcpu"] = info.nrVirtCpu;
+        j_dom["name"] = virDomainGetName(dom);
+        j.push_back(j_dom);
+    }
+    free(activeDomains);
     return j.dump();
 }
 
@@ -139,8 +169,8 @@ std::string NativeImplementSysInfo::get_host_cpu_usage(){
         j["status"] = "error";
         return j.dump();
     }
-    DEBUG("IDLE_TIME1", idle_time1);
-    DEBUG("TOTAL_TIME1", total_time1);
+    DEBUG(idle_time1);
+    DEBUG(total_time1);
     
     usleep(10000);               // sleep for 10ms
 
@@ -148,8 +178,8 @@ std::string NativeImplementSysInfo::get_host_cpu_usage(){
         j["status"] = "error";
         return j.dump();
     }
-    DEBUG("IDLE_TIME2", idle_time2);
-    DEBUG("TOTAL_TIME2", total_time2);
+    DEBUG(idle_time2);
+    DEBUG(total_time2);
     
     j["cpus_usage"] = (1.0 - ((double)(idle_time2 - idle_time1)/(total_time2 - total_time1))) * 100.0;
     j["status"] = "ok";
