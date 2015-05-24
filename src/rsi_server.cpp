@@ -4,6 +4,7 @@
 #include <map>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <signal.h>
 #include <netinet/in.h>
 #include <cerrno>
 #include <arpa/inet.h>
@@ -15,9 +16,14 @@
 #include "rsi_server.h"
 #include "sysinfo.h"
 #include "globals.h"
+
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
     this->sysinfo = sysinfo;
     int server_sockfd = listen_port(port);
+    if(signal(SIGCHLD, sig_child) == SIG_ERR){
+        LOG_ERROR("could not bind SIGCHLD to sig_child");
+        exit(-1);
+    }
     while(1){
         int client_sockfd = accept_client(server_sockfd);
         pid_t pid = fork();
@@ -26,16 +32,17 @@ RsiServer::RsiServer(int port, SysInfo *sysinfo){
             while (true) {
                 if(communicate(client_sockfd) < 0)
                     exit(-1);
-                //sleep(time_interval);
             }
         }
         else{
             close(client_sockfd);
-            DEBUG(pid);
-            wait(NULL);   // 只允许一个连接
-            LOG_INFO("Connection Closed");
         }
     }
+}
+
+void RsiServer::sig_child(int signo){
+    signo = signo;
+    LOG_INFO("Connection Closed");
 }
 
 int RsiServer::listen_port(int port){

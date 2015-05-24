@@ -5,6 +5,7 @@ class RsiServer
 {
 private:
     SysInfo *sysinfo;
+    static void sig_child(int signo);
 public:
     RsiServer(int port, SysInfo *sysinfo);
     int listen_port(int port);

@@ -46,7 +46,7 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
     nodes.clear();
     
     int nodenr = numa_num_configured_nodes();
-    std::cout << nodenr << std::endl;
+    DEBUG(nodenr);
     for(int i=0; i<nodenr; i++){
         std::map<std::string, std::vector<int> > m;
             
@@ -60,18 +60,13 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
         v.clear();
         struct bitmask *cpumask = numa_allocate_cpumask();
         if(numa_node_to_cpus(i, cpumask) < 0){
-            std::cout << "numa_node_to_cpus error" << std::endl;
+            LOG_ERROR("numa_node_to_cpus error");
             continue;
         }
-        std::cout << cpumask->size << " " << numa_node_size(i, 0) << " " << *(cpumask->maskp) << std::endl;
-        //int cpunr = numa_num_configured_cpus();
         for(size_t i=0; i<cpumask->size; i++){
             if(numa_bitmask_isbitset(cpumask, i)){
                 v.push_back(i);
             }
-            // if( *(cpumask->maskp) & ((long long)1 << i) ){
-            //     v.push_back(i);
-            // }
         }
         numa_free_cpumask(cpumask);
         m["cpu"] = v;
