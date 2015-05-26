@@ -20,7 +20,7 @@
 int main(int argc, char *argv[])
 {
 
-    int port = 22; 
+    int port = 7209; 
 
     std::map<std::string, std::string> config;
     Tools tools;
