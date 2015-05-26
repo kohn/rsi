@@ -5,6 +5,10 @@ RSI attempts to work as a server and responses to requests with system's
 status including CPU usage, memory usage and virtual machine information
 via TCP sockets.
 
+RSI server works as daemon process and listens to port 7209. After
+connected to a client, it reads message from client and send
+corresponding message in JSON format back to client.
+
 Dependencies
 ============
 
