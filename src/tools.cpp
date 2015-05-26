@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-
+#include "globals.h"
 bool Tools::IsSpace(char c){
     if (' ' == c || '\t' == c)
         return true;
@@ -78,6 +78,7 @@ bool Tools::ReadConfig(const std::string & filename, std::map<std::string, std::
     m.clear();
     std::ifstream infile(filename.c_str());
     if (!infile) {
+        LOG_ERROR("could not open config file");
         return false;
     }
     std::string line, key, value;

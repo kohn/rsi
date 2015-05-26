@@ -15,23 +15,26 @@
 #include "rsi_server.h"
 #include "native_implement_sysinfo.h"
 #include "tools.h"
+#include "globals.h"
 
 int main(int argc, char *argv[])
 {
-    if(argc == 2 && strcmp(argv[1], "-d") == 0){
-        daemon(0, 0);
-    }
 
-    int port = 7209;
+    int port = 22; 
 
     std::map<std::string, std::string> config;
     Tools tools;
-    if(!tools.ReadConfig("rsi_server.config", config)){
+    if(tools.ReadConfig("rsi.config", config)){
         std::map<std::string, std::string>::iterator it = config.find("port");
-        if(it != config.end())
+        if(it != config.end()){
             port = atoi((it->second).c_str());
+        }
     }
-
+    
+    if(argc == 2 && strcmp(argv[1], "-d") == 0){
+        daemon(0, 0);
+    }
+    
     NativeImplementSysInfo native_sysinfo;
     RsiServer rsi_server(port, &native_sysinfo);
     
