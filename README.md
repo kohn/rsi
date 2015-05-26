@@ -5,7 +5,8 @@ RSI attempts to work as a server and responses to requests with system's
 status including CPU usage, memory usage and virtual machine information
 via TCP sockets.
 
-RSI server works as daemon process and listens to port 7209. After
+RSI server works as daemon process and listens to port 7209(could be
+change in rsi.config). After
 connected to a client, it reads message from client and send
 corresponding message in JSON format back to client.
 
@@ -16,7 +17,7 @@ Dependencies
 2.  libvirt
 3.  libproc
 4.  libnuma
-5.  gcc(g++) 4.9.0+
+5.  gcc(g++) 4.9.0+ (-std=c++11)
 
 Interface
 =========
