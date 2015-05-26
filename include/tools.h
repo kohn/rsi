@@ -2,6 +2,7 @@
 #define TOOLS_H
 #include <string>
 #include <map>
+#include <vector>
 #define COMMENT_CHAR '#'
 
 class Tools
@@ -20,5 +21,6 @@ public:
     void PrintConfig(const std::map<std::string, std::string> &m);
     std::string JsonEncode(std::map<std::string, std::string> &m);
 
+    static void split(std::string s, std::vector<std::string> &v, char delim);
 };
 #endif

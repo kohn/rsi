@@ -41,6 +41,7 @@ public:
      * }
     */
     virtual std::string get_host_cpu_usage() = 0;
+    virtual std::string get_vm_detail(int domain_id) = 0;
     virtual ~SysInfo(){}
 };
 #endif

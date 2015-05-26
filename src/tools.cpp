@@ -1,6 +1,7 @@
 #include "tools.h"
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 bool Tools::IsSpace(char c){
     if (' ' == c || '\t' == c)
@@ -96,3 +97,13 @@ void Tools::PrintConfig(const std::map<std::string, std::string> & m)
         std::cout << mite->first << "=" << mite->second << std::endl;
     }
 }
+
+
+void Tools::split(std::string s, std::vector<std::string> &v, char delim){
+    std::stringstream ss(s);
+    std::string item;
+    while(std::getline(ss, item, delim)) {
+        v.push_back(item);
+    }
+}
+

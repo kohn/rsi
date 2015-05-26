@@ -6,3 +6,5 @@ deploy.sh
 dependency/
 include/libvirt_sysinfo.h
 src/libvirt_sysinfo.cpp
+include/xml2.json.hpp
+include/xml2json.hpp

@@ -18,6 +18,7 @@ public:
     std::string get_host_cpu_usage();
     std::string get_host_node_info();
     std::string get_vm_info();
+    std::string get_vm_detail(int domain_id);
     ~NativeImplementSysInfo();
 };
 

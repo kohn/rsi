@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
+#include "tinyxml2.h"
 #include "globals.h"
 #include "json.hpp"
 using json = nlohmann::json;
@@ -131,7 +132,6 @@ std::string NativeImplementSysInfo::get_vm_info(){
         }
         json j_dom;
         j_dom["id"] = activeDomains[i];
-        DEBUG(info.maxMem);
         j_dom["mem_total"] = info.maxMem;
         j_dom["vcpu"] = info.nrVirtCpu;
         j_dom["name"] = virDomainGetName(dom);
@@ -178,5 +178,32 @@ std::string NativeImplementSysInfo::get_host_cpu_usage(){
     
     j["cpus_usage"] = (1.0 - ((double)(idle_time2 - idle_time1)/(total_time2 - total_time1))) * 100.0;
     j["status"] = "ok";
+    return j.dump();
+}
+
+std::string NativeImplementSysInfo::get_vm_detail(int domain_id){
+    json j = json::object();
+    j["status"] = "ok";
+    virDomainPtr dom = virDomainLookupByID(conn, domain_id);
+    virDomainInfo info;
+    if(virDomainGetInfo(dom, &info) < 0){
+        LOG_ERROR("could not get domain info");
+        j["status"] = "no such domain";
+        return j.dump();
+    }
+    // basic info
+    j["id"] = domain_id;
+    j["mem_total"] = info.maxMem;
+    j["vcpu"] = info.nrVirtCpu;
+    j["name"] = virDomainGetName(dom);
+
+    // more detailed info
+    char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
+    tinyxml2::XMLDocument doc;
+    doc.Parse(domain_xml);
+    j["img_path"] = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("disk")->FirstChildElement("source")->Attribute("file");
+    tinyxml2::XMLElement *graphics = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("graphics");
+    j["vnc_port"] = graphics->Attribute("port");
+    
     return j.dump();
 }

@@ -16,6 +16,8 @@
 #include "rsi_server.h"
 #include "sysinfo.h"
 #include "globals.h"
+#include "tools.h"
+#include <vector>
 
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
     this->sysinfo = sysinfo;
@@ -85,8 +87,16 @@ int RsiServer::communicate(int client_sockfd){
 again:
     if((read_num = read(client_sockfd, buf, 4095))> 0){
         buf[read_num] = '\0';
-        if(strcmp(buf, "GET_HOST_MEM_USAGE") == 0){
-            LOG_INFO("GET_HOST_MEM_USAGE");
+        LOG_INFO(buf);
+        std::vector<std::string> strings;
+        std::string str(buf);
+        Tools::split(str, strings, '\n');
+        if(strings.size() == 0){
+            LOG_ERROR("could not get any valid string from socket READ");
+            return -1;
+        }
+        
+        if(strings[0] == "GET_HOST_MEM_USAGE"){
             std::string response = sysinfo->get_host_mem_usage();
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
@@ -94,8 +104,7 @@ again:
                 return -1;
             }
         }
-        else if(strcmp(buf, "GET_HOST_NODE_INFO") == 0){
-            LOG_INFO("GET_HOST_NODE_INFO");
+        else if(strings[0] == "GET_HOST_NODE_INFO"){
             std::string response = sysinfo->get_host_node_info();
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
@@ -103,8 +112,7 @@ again:
                 return -1;
             }
         }
-        else if(strcmp(buf, "GET_VM_INFO") == 0){
-            LOG_INFO("GET_VM_INFO");
+        else if(strings[0] ==  "GET_VM_INFO"){
             std::string response = sysinfo->get_vm_info();
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
@@ -112,9 +120,21 @@ again:
                 return -1;
             }
         }
-        else if(strcmp(buf, "GET_CPU_INFO") == 0){
-            LOG_INFO("GET_CPU_INFO");
+        else if(strings[0] == "GET_HOST_CPU_USAGE"){
             std::string response = sysinfo->get_host_cpu_usage();
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        else if(strings[0] == "GET_VM_DETAIL"){
+            if(strings.size() == 1){
+                LOG_ERROR("GET_VM_DETAIL needs 2 arguments");
+                return -1;
+            }
+            int vm_id = atoi(strings[1].c_str());
+            std::string response = sysinfo->get_vm_detail(vm_id);
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
