@@ -3,7 +3,7 @@ RSI
 
 RSI attempts to work as a server and responses to requests with system's
 status including CPU usage, memory usage and virtual machine information
-vis TCP sockets.
+via TCP sockets.
 
 Dependencies
 ============
@@ -24,7 +24,7 @@ Input: `GET_HOST_MEM_USAGE`
 
 Output:
 
-``` {.json}
+``` 
   { 
        "host_mem_total": mem_total,
        "host_mem_free": mem_free
@@ -38,7 +38,7 @@ Input: `GET_HOST_CPU_USAGE`
 
 Output:
 
-``` {.json}
+``` 
   {
       "status": "ok"|"error",
       "cpu_usage": cpu_usage
@@ -52,7 +52,7 @@ Input: `GET_HOST_NODE_INFO`
 
 Output:
 
-``` {.json}
+``` 
   {
       "node_num": node_num,
       "nodes_id": [id0, id1, ...],
@@ -72,7 +72,7 @@ Input: `GET_VM_INFO`
 
 Output:
 
-``` {.json}
+``` 
   [
       {
           "id": id,
@@ -90,7 +90,7 @@ VM Detail
 
 Input: `GET_VM_INFO\nvm_id` Output:
 
-``` {.json}
+``` 
   {
       "status": "ok"|"no such domain",
       "id": id,
