@@ -9,7 +9,7 @@ SET(SRC_LISTS
   main.cpp
   rsi_server.cpp
   tools.cpp
-  json.hpp
+  jsoncpp.cpp
   tinyxml2.cpp
   )
 

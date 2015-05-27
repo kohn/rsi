@@ -7,8 +7,7 @@
 #include <unistd.h>
 #include "tinyxml2.h"
 #include "globals.h"
-#include "json.hpp"
-using json = nlohmann::json;
+#include "json/json.h"
 
 NativeImplementSysInfo::NativeImplementSysInfo(){
     conn = virConnectOpen("qemu:///system");
@@ -23,8 +22,6 @@ NativeImplementSysInfo::~NativeImplementSysInfo(){
 }
 
 void NativeImplementSysInfo::get_mem_info(long long *total_mem, long long *free_mem){
-    json j;
-    
     int nodenr=numa_max_node();
     long long total_mem_space=0;
     long long total_free_space=0;
@@ -80,10 +77,10 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
 std::string NativeImplementSysInfo::get_host_mem_usage(){
     long long mem_total, mem_free;
     get_mem_info(&mem_total, &mem_free);
-    json j;
+    Json::Value j;
     j["host_mem_total"] = mem_total;
     j["host_mem_free"] = mem_free;
-    return j.dump();
+    return j.toStyledString();
 }
 
 
@@ -91,31 +88,34 @@ std::string NativeImplementSysInfo::get_host_node_info(){
     std::vector<std::map<std::string, std::vector<int> > > v;
     get_node_info(v);
 
-    json j;
+    Json::Value j(Json::objectValue);
     char buf[64];
-    j["node_num"] = v.size();
-    j["nodes"] = json::object();
+    j["node_num"] = (int)v.size();
+    Json::Value nodes(Json::objectValue);
+    j["nodes"] = nodes;
+    Json::Value nodes_id(Json::arrayValue);
     for(size_t i=0; i < v.size(); i++){ // i: node id
         sprintf(buf, "%lu",  i);      // buf: string of node id
-        j["nodes_id"].push_back(buf);
+        nodes_id.append(buf);
         std::map<std::string, std::vector<int> > m = v[i];
         std::vector<int> mem = m["mem"];
         std::vector<int> cpu = m["cpu"];
-        j["nodes"][buf] = json::object();
-        j["nodes"][buf]["node_mem_total"] = mem[0];
-        j["nodes"][buf]["node_mem_free"] = mem[1];
-        json cores;
+        Json::Value jnode(Json::objectValue);
+        jnode["node_mem_total"] = mem[0];
+        jnode["node_mem_free"] = mem[1];
+        Json::Value cores(Json::arrayValue);
         for(size_t j=0; j<cpu.size(); j++){
-            cores.push_back(cpu[j]);
+            cores.append(cpu[j]);
         }
-        j["nodes"][buf]["cores"] = cores;
-        
+        jnode["cores"] = cores;
+        nodes[buf] = jnode;
     }
-    return j.dump();
+    j["nodes_id"] = nodes_id;
+    return j.toStyledString();
 }
 
 std::string NativeImplementSysInfo::get_vm_info(){
-    json j = json::array();
+    Json::Value j(Json::arrayValue);
     int numDomains;
     int *activeDomains;
     numDomains = virConnectNumOfDomains(conn);
@@ -130,15 +130,15 @@ std::string NativeImplementSysInfo::get_vm_info(){
             LOG_ERROR("could not get domain info");
             continue;
         }
-        json j_dom;
+        Json::Value j_dom(Json::objectValue);
         j_dom["id"] = activeDomains[i];
-        j_dom["mem_total"] = info.maxMem;
+        j_dom["mem_total"] = (unsigned long long)info.maxMem;
         j_dom["vcpu"] = info.nrVirtCpu;
         j_dom["name"] = virDomainGetName(dom);
-        j.push_back(j_dom);
+        j.append(j_dom);
     }
     free(activeDomains);
-    return j.dump();
+    return j.toStyledString();
 }
 
 int NativeImplementSysInfo::get_cpu_info(unsigned long &cpu_idle, unsigned long &cpu_total){
@@ -158,11 +158,11 @@ int NativeImplementSysInfo::get_cpu_info(unsigned long &cpu_idle, unsigned long 
     return 0;
 }
 std::string NativeImplementSysInfo::get_host_cpu_usage(){
-    json j;
+    Json::Value j;
     unsigned long idle_time1, idle_time2, total_time1, total_time2;
     if(get_cpu_info(idle_time1, total_time1) < 0){
         j["status"] = "error";
-        return j.dump();
+        return j.toStyledString();
     }
     DEBUG(idle_time1);
     DEBUG(total_time1);
@@ -171,29 +171,29 @@ std::string NativeImplementSysInfo::get_host_cpu_usage(){
 
     if(get_cpu_info(idle_time2, total_time2) < 0){
         j["status"] = "error";
-        return j.dump();
+        return j.toStyledString();
     }
     DEBUG(idle_time2);
     DEBUG(total_time2);
     
     j["cpus_usage"] = (1.0 - ((double)(idle_time2 - idle_time1)/(total_time2 - total_time1))) * 100.0;
     j["status"] = "ok";
-    return j.dump();
+    return j.toStyledString();
 }
 
 std::string NativeImplementSysInfo::get_vm_detail(int domain_id){
-    json j = json::object();
+    Json::Value j;
     j["status"] = "ok";
     virDomainPtr dom = virDomainLookupByID(conn, domain_id);
     virDomainInfo info;
     if(virDomainGetInfo(dom, &info) < 0){
         LOG_ERROR("could not get domain info");
         j["status"] = "no such domain";
-        return j.dump();
+        return j.toStyledString();
     }
     // basic info
     j["id"] = domain_id;
-    j["mem_total"] = info.maxMem;
+    j["mem_total"] = (unsigned long long)info.maxMem;
     j["vcpu"] = info.nrVirtCpu;
     j["name"] = virDomainGetName(dom);
 
@@ -205,5 +205,6 @@ std::string NativeImplementSysInfo::get_vm_detail(int domain_id){
     tinyxml2::XMLElement *graphics = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("graphics");
     j["vnc_port"] = graphics->Attribute("port");
     
-    return j.dump();
+    return j.toStyledString();
 }
+

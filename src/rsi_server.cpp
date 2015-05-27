@@ -21,11 +21,11 @@
 
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
     this->sysinfo = sysinfo;
-    int server_sockfd = listen_port(port);
     if(signal(SIGCHLD, sig_child) == SIG_ERR){
         LOG_ERROR("could not bind SIGCHLD to sig_child");
         exit(-1);
     }
+    int server_sockfd = listen_port(port);
     while(1){
         int client_sockfd = accept_client(server_sockfd);
         pid_t pid = fork();
