@@ -13,11 +13,10 @@ corresponding message in JSON format back to client.
 Dependencies
 ============
 
-1.  CMake 2.8+
+1.  CMake 2.6+
 2.  libvirt
 3.  libproc
 4.  libnuma
-5.  gcc(g++) 4.9.0+ (-std=c++11)
 6.  tinyxml2(included in this repo)
 
 Interface
