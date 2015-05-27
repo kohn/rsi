@@ -18,6 +18,7 @@ Dependencies
 3.  libproc
 4.  libnuma
 5.  gcc(g++) 4.9.0+ (-std=c++11)
+6.  tinyxml2(included in this repo)
 
 Interface
 =========
