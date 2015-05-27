@@ -13,7 +13,7 @@ corresponding message in JSON format back to client.
 Dependencies
 ============
 
-1.  CMake
+1.  CMake 4.8+
 2.  libvirt
 3.  libproc
 4.  libnuma
@@ -105,4 +105,12 @@ Input: `GET_VM_INFO\nvm_id` Output:
       "img_path": path_to_image,
       "vnc_port": VNC_port
   }
+```
+
+Unknown Input
+------------
+```
+{
+    "status": "cmd not recognized"
+}
 ```
