@@ -13,7 +13,7 @@ corresponding message in JSON format back to client.
 Dependencies
 ============
 
-1.  CMake 4.8+
+1.  CMake 2.8+
 2.  libvirt
 3.  libproc
 4.  libnuma
