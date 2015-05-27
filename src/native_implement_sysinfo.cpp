@@ -92,7 +92,6 @@ std::string NativeImplementSysInfo::get_host_node_info(){
     char buf[64];
     j["node_num"] = (int)v.size();
     Json::Value nodes(Json::objectValue);
-    j["nodes"] = nodes;
     Json::Value nodes_id(Json::arrayValue);
     for(size_t i=0; i < v.size(); i++){ // i: node id
         sprintf(buf, "%lu",  i);      // buf: string of node id
@@ -110,6 +109,7 @@ std::string NativeImplementSysInfo::get_host_node_info(){
         jnode["cores"] = cores;
         nodes[buf] = jnode;
     }
+    j["nodes"] = nodes;
     j["nodes_id"] = nodes_id;
     return j.toStyledString();
 }
