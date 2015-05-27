@@ -93,7 +93,7 @@ Output:
 VM Detail
 ---------
 
-Input: `GET_VM_INFO\nvm_id` Output:
+Input: `GET_VM_INFO vm_id` Output:
 
 ``` 
   {
