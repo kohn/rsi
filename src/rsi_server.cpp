@@ -90,12 +90,11 @@ again:
         LOG_INFO(buf);
         std::vector<std::string> strings;
         std::string str(buf);
-        Tools::split(str, strings, '\n');
+        Tools::split(str, strings, ' ');
         if(strings.size() == 0){
             LOG_ERROR("could not get any valid string from socket READ");
             return -1;
         }
-        
         if(strings[0] == "GET_HOST_MEM_USAGE"){
             std::string response = sysinfo->get_host_mem_usage();
             DEBUG(response);
@@ -141,6 +140,14 @@ again:
                 return -1;
             }
         }
+        else {
+            std::string response = "{\"status\": \"cmd not recognized\"}";
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+            
     }
     else if(read_num <0 && errno==EINTR){
         perror("read interrupt");
