@@ -15,9 +15,9 @@ Dependencies
 
 1.  CMake 2.6+
 2.  libvirt
-3.  libproc
-4.  libnuma
-6.  tinyxml2(included in this repo)
+3.  libnuma 
+4.  tinyxml2(included in this repo)
+5.  jsoncpp(included in this repo)
 
 Interface
 =========
