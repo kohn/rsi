@@ -20,7 +20,7 @@ NativeImplementSysInfo::NativeImplementSysInfo(){
     while(!ifs.eof()){
         std::string line;
         ifs >> line;
-        if(line.find("processor") == std::string::npos){
+        if(line.find("processor") != std::string::npos){
             cpu_num ++;
         }
     }
@@ -43,8 +43,8 @@ void NativeImplementSysInfo::get_mem_info(long long *total_mem, long long *free_
     long long total, free;
     ifs >> label >> total >> label;
     ifs >> label >> free >> label;
-    *total_mem = total;
-    *free_mem = free;
+    *total_mem = total*1024; // KB->B
+    *free_mem = free*1024;
     ifs.close();
 }
 
@@ -56,8 +56,8 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
         std::map<std::string, std::vector<int> > m;
         
         std::vector<int> v;
-        v.push_back((int)total_mem);
-        v.push_back((int)free_mem);
+        v.push_back((int)(total_mem/1024)); //byte -> KB
+        v.push_back((int)(free_mem/1024));
         m["mem"] = v;
 
         v.clear();
@@ -65,34 +65,38 @@ void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std
             v.push_back(i);
         }
         m["cpu"] = v;
-    }
-    int nodenr = numa_num_configured_nodes();
-    DEBUG(nodenr);
-    for(int i=0; i<nodenr; i++){
-        std::map<std::string, std::vector<int> > m;
-            
-        long long node_free_space;
-        long long node_total_space = numa_node_size64(i, &node_free_space);
-        std::vector<int> v;
-        v.push_back((int)(node_total_space/1024));
-        v.push_back((int)(node_free_space/1024));
-        m["mem"] = v;
-
-        v.clear();
-        struct bitmask *cpumask = numa_allocate_cpumask();
-        if(numa_node_to_cpus(i, cpumask) < 0){
-            LOG_ERROR("numa_node_to_cpus error");
-            continue;
-        }
-        for(size_t i=0; i<cpumask->size; i++){
-            if(numa_bitmask_isbitset(cpumask, i)){
-                v.push_back(i);
-            }
-        }
-        numa_free_cpumask(cpumask);
-        m["cpu"] = v;
-
         nodes.push_back(m);
+        return ;
+    }
+    else{
+        int nodenr = numa_num_configured_nodes();
+        DEBUG(nodenr);
+        for(int i=0; i<nodenr; i++){
+            std::map<std::string, std::vector<int> > m;
+            
+            long long node_free_space;
+            long long node_total_space = numa_node_size64(i, &node_free_space);
+            std::vector<int> v;
+            v.push_back((int)(node_total_space/1024));
+            v.push_back((int)(node_free_space/1024));
+            m["mem"] = v;
+
+            v.clear();
+            struct bitmask *cpumask = numa_allocate_cpumask();
+            if(numa_node_to_cpus(i, cpumask) < 0){
+                LOG_ERROR("numa_node_to_cpus error");
+                continue;
+            }
+            for(size_t i=0; i<cpumask->size; i++){
+                if(numa_bitmask_isbitset(cpumask, i)){
+                    v.push_back(i);
+                }
+            }
+            numa_free_cpumask(cpumask);
+            m["cpu"] = v;
+
+            nodes.push_back(m);
+        }
     }
 }
 
