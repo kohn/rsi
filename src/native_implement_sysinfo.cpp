@@ -16,7 +16,7 @@ NativeImplementSysInfo::NativeImplementSysInfo(){
         exit(-1);
     }
     cpu_num = 0;
-    std::fstream ifs("/proc/cpuinfo");
+    std::ifstream ifs("/proc/cpuinfo");
     while(!ifs.eof()){
         std::string line;
         ifs >> line;
