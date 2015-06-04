@@ -11,10 +11,10 @@ SET(SRC_LISTS
   tools.cpp
   jsoncpp.cpp
   tinyxml2.cpp
+  virt.cpp
   )
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
 add_executable(rsi_server ${SRC_LISTS})
 target_link_libraries(rsi_server numa)
-target_link_libraries(rsi_server pthread)
 target_link_libraries(rsi_server virt)

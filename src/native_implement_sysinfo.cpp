@@ -15,6 +15,16 @@ NativeImplementSysInfo::NativeImplementSysInfo(){
         LOG_ERROR("could not open libvirt connection");
         exit(-1);
     }
+    cpu_num = 0;
+    std::fstream ifs("/proc/cpuinfo");
+    while(!ifs.eof()){
+        std::string line;
+        ifs >> line;
+        if(line.find("processor") == std::string::npos){
+            cpu_num ++;
+        }
+    }
+    ifs.close();
 }
 
 NativeImplementSysInfo::~NativeImplementSysInfo(){
@@ -22,27 +32,40 @@ NativeImplementSysInfo::~NativeImplementSysInfo(){
 }
 
 void NativeImplementSysInfo::get_mem_info(long long *total_mem, long long *free_mem){
-    int nodenr=numa_max_node();
-    long long total_mem_space=0;
-    long long total_free_space=0;
-    for(int i=0;i<=nodenr;i++)
-    {
-        long long node_free_space;
-        long long node_total_space;
-        node_total_space = numa_node_size64(i,&node_free_space);
-        if(node_total_space==-1)
-            continue;
-        total_free_space+=node_free_space;
-        total_mem_space+=node_total_space;
+    std::ifstream ifs("/proc/meminfo");
+    if(!ifs.is_open()){
+        LOG_ERROR("could not open /proc/meminfo");
+        *total_mem = 0;
+        *free_mem = 0;
+        return;
     }
-
-    *total_mem = total_mem_space;
-    *free_mem = total_free_space;
+    std::string label;
+    long long total, free;
+    ifs >> label >> total >> label;
+    ifs >> label >> free >> label;
+    *total_mem = total;
+    *free_mem = free;
+    ifs.close();
 }
 
 void NativeImplementSysInfo::get_node_info(std::vector<std::map<std::string, std::vector<int> > > &nodes){
     nodes.clear();
-    
+    if(numa_available() == -1){ // host is not numa arch
+        long long total_mem, free_mem;
+        get_mem_info(&total_mem, &free_mem);
+        std::map<std::string, std::vector<int> > m;
+        
+        std::vector<int> v;
+        v.push_back((int)total_mem);
+        v.push_back((int)free_mem);
+        m["mem"] = v;
+
+        v.clear();
+        for(int i=0; i<cpu_num; i++){
+            v.push_back(i);
+        }
+        m["cpu"] = v;
+    }
     int nodenr = numa_num_configured_nodes();
     DEBUG(nodenr);
     for(int i=0; i<nodenr; i++){

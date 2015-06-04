@@ -9,8 +9,8 @@
 # comment: used to test rsi_server
 ########################################
 import socket
-import json
 import signal
+import sys
 sock = None
 def get_socket(ip_address="10.214.144.184", port=7209):
     print "connecting..."
@@ -36,7 +36,10 @@ def my_signal_handler(a, b):
     
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, my_signal_handler)
-    sock = get_socket()
+    if len(sys.argv) == 2:
+        sock = get_socket(sys.argv[1])
+    else:
+        sock = get_socket()
     communicate(sock, "GET_HOST_MEM_USAGE")
     communicate(sock, "GET_HOST_NODE_INFO")
     communicate(sock, "GET_VM_INFO")
