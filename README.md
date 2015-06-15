@@ -93,7 +93,9 @@ Output:
 VM Detail
 ---------
 
-Input: `GET_VM_INFO vm_id` Output:
+Input: `GET_VM_INFO vm_id`
+
+Output:
 
 ``` 
   {
@@ -105,6 +107,31 @@ Input: `GET_VM_INFO vm_id` Output:
       "img_path": path_to_image,
       "vnc_port": VNC_port
   }
+```
+
+Open VM
+----------
+Input: `OPEN_VM vm_name` 
+
+Output:
+
+```
+ {
+     "status": "ok"|error_reason,
+     "vm_id": vm_id if status==ok
+ }
+``` 
+ 
+ Close VM
+ ----------------
+ 
+Input : `CLOSE_VM vm_id`
+
+Output:
+```
+ {
+     "status": "ok"|error_reason
+ }
 ```
 
 Unknown Input
