@@ -122,8 +122,8 @@ Output:
  }
 ``` 
  
- Close VM
- ----------------
+Close VM
+----------------
  
 Input : `CLOSE_VM vm_id`
 
