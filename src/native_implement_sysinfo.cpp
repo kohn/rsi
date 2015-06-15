@@ -5,7 +5,6 @@
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
-#include "tinyxml2.h"
 #include "globals.h"
 #include "json/json.h"
 
@@ -141,33 +140,6 @@ std::string NativeImplementSysInfo::get_host_node_info(){
     return j.toStyledString();
 }
 
-std::string NativeImplementSysInfo::get_vm_info(){
-    Json::Value j(Json::arrayValue);
-    int numDomains;
-    int *activeDomains;
-    numDomains = virConnectNumOfDomains(conn);
-    DEBUG(numDomains);
-    
-    activeDomains = (int *)malloc(sizeof(int) * numDomains);
-    numDomains = virConnectListDomains(conn, activeDomains, numDomains);
-    for (int i = 0 ; i < numDomains ; i++) {
-        virDomainPtr dom = virDomainLookupByID(conn, activeDomains[i]);
-        virDomainInfo info;
-        if(virDomainGetInfo(dom, &info) < 0){
-            LOG_ERROR("could not get domain info");
-            continue;
-        }
-        Json::Value j_dom(Json::objectValue);
-        j_dom["id"] = activeDomains[i];
-        j_dom["mem_total"] = (unsigned long long)info.maxMem;
-        j_dom["vcpu"] = info.nrVirtCpu;
-        j_dom["name"] = virDomainGetName(dom);
-        j.append(j_dom);
-    }
-    free(activeDomains);
-    return j.toStyledString();
-}
-
 int NativeImplementSysInfo::get_cpu_info(unsigned long &cpu_idle, unsigned long &cpu_total){
     std::ifstream ifs("/proc/stat");
     if(!ifs.is_open()){
@@ -205,33 +177,6 @@ std::string NativeImplementSysInfo::get_host_cpu_usage(){
     
     j["cpus_usage"] = (1.0 - ((double)(idle_time2 - idle_time1)/(total_time2 - total_time1))) * 100.0;
     j["status"] = "ok";
-    return j.toStyledString();
-}
-
-std::string NativeImplementSysInfo::get_vm_detail(int domain_id){
-    Json::Value j;
-    j["status"] = "ok";
-    virDomainPtr dom = virDomainLookupByID(conn, domain_id);
-    virDomainInfo info;
-    if(virDomainGetInfo(dom, &info) < 0){
-        LOG_ERROR("could not get domain info");
-        j["status"] = "no such domain";
-        return j.toStyledString();
-    }
-    // basic info
-    j["id"] = domain_id;
-    j["mem_total"] = (unsigned long long)info.maxMem;
-    j["vcpu"] = info.nrVirtCpu;
-    j["name"] = virDomainGetName(dom);
-
-    // more detailed info
-    char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
-    tinyxml2::XMLDocument doc;
-    doc.Parse(domain_xml);
-    j["img_path"] = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("disk")->FirstChildElement("source")->Attribute("file");
-    tinyxml2::XMLElement *graphics = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("graphics");
-    j["vnc_port"] = graphics->Attribute("port");
-    
     return j.toStyledString();
 }
 

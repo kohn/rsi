@@ -25,6 +25,10 @@ RsiServer::RsiServer(int port, SysInfo *sysinfo){
         LOG_ERROR("could not bind SIGCHLD to sig_child");
         exit(-1);
     }
+    if(signal(SIGINT, sig_int) == SIG_ERR){
+        LOG_ERROR("could not bind SIGINT to sig_int");
+        exit(-1);
+    }
     int server_sockfd = listen_port(port);
     while(1){
         int client_sockfd = accept_client(server_sockfd);
@@ -47,6 +51,11 @@ void RsiServer::sig_child(int signo){
     LOG_INFO("Connection Closed");
 }
 
+void RsiServer::sig_int(int signo){
+    signo = signo;
+    LOG_INFO("SIGINT captured");
+    exit(0);
+}
 int RsiServer::listen_port(int port){
     int sockfd;
     struct sockaddr_in server_addr;
@@ -112,7 +121,7 @@ again:
             }
         }
         else if(strings[0] ==  "GET_VM_INFO"){
-            std::string response = sysinfo->get_vm_info();
+            std::string response = vm_controller.get_vm_info();
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
@@ -128,18 +137,53 @@ again:
             }
         }
         else if(strings[0] == "GET_VM_DETAIL"){
+            std::string response;
             if(strings.size() == 1){
                 LOG_ERROR("GET_VM_DETAIL needs 2 arguments");
-                return -1;
+                response = "{\"status\": \"GET_VM_DETAIL needs 2 arguments\"}";
             }
-            int vm_id = atoi(strings[1].c_str());
-            std::string response = sysinfo->get_vm_detail(vm_id);
+            else{
+                int vm_id = atoi(strings[1].c_str());
+                response = vm_controller.get_vm_detail(vm_id);
+            }
             DEBUG(response);
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
                 perror("write error");
                 return -1;
             }
         }
+        else if(strings[0] == "OPEN_VM"){
+            std::string response;
+            if(strings.size() == 1){
+                LOG_ERROR("OPEN_VM needs 2 arguments");
+                response = "{\"status\": \"OPEN_VM needs 2 arguments\"}";
+            }
+            else{
+                response = vm_controller.open_vm(strings[1]);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        else if(strings[0] == "CLOSE_VM"){
+            std::string response;
+            if(strings.size() == 1){
+                LOG_ERROR("CLOSE_VM needs 2 arguments");
+                response = "{\"status\": \"CLOSE_VM needs 2 arguments\"}";
+            }
+            else{
+                int vm_id = atoi(strings[1].c_str());
+                response = vm_controller.close_vm(vm_id);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+
         else {
             std::string response = "{\"status\": \"cmd not recognized\"}";
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
@@ -147,7 +191,6 @@ again:
                 return -1;
             }
         }
-            
     }
     else if(read_num <0 && errno==EINTR){
         perror("read interrupt");
