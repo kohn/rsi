@@ -152,6 +152,22 @@ again:
                 return -1;
             }
         }
+        else if(strings[0] == "GET_VM_DETAIL_BY_NAME"){
+            std::string response;
+            if(strings.size() == 1){
+                LOG_ERROR("GET_VM_DETAIL_BY_NAME needs 2 arguments");
+                response = "{\"status\": \"GET_VM_DETAIL_BY_NAME needs 2 arguments\"}";
+            }
+            else{
+                response = vm_controller.get_vm_detail_by_name(strings[1]);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+
         else if(strings[0] == "OPEN_VM"){
             std::string response;
             if(strings.size() == 1){
@@ -183,7 +199,6 @@ again:
                 return -1;
             }
         }
-
         else {
             std::string response = "{\"status\": \"cmd not recognized\"}";
             if(write(client_sockfd, response.c_str(), response.length()) < 0){

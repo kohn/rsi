@@ -6,8 +6,10 @@ class VM_Controller
 {
 private:
     virConnectPtr _conn;
+    std::string state_code2string(int state);
+    std::string get_vm_detail(virDomainPtr dom);
 public:
-    int CreateVM(int vcpu, int mem, std::string img_path);
+    int create_vm(int vcpu, int mem, std::string img_path);
     /* [
      *     {
      *         "id": id,
@@ -24,8 +26,29 @@ public:
      * ]
     */
     std::string get_vm_info();
-    std::string get_vm_detail(int domain_id);
+    /*
+     * {
+     *     "status": "ok"|"no such domain",
+     *     "id": id,
+     *     "mem_total": mem_total_in_KB,
+     *     "vcpu": vcpu_num,
+     *     "name": name,
+     *     "img_path": path_to_image,
+     *     "vnc_port": VNC_port
+     * }
+     */
+    std::string get_vm_detail_by_id(int domain_id);
+    std::string get_vm_detail_by_name(std::string domain_name);
+    /* {
+     *     "status": "ok"|error_reason,
+     *     "vm_id": vm_id if status==ok
+     * }
+    */
     std::string open_vm(std::string name);
+    /* {
+     *     "status": "ok"|error_reason
+     * }
+    */
     std::string close_vm(int domain_id);
     VM_Controller();
     ~VM_Controller();

@@ -88,10 +88,22 @@ std::string VM_Controller::get_vm_info(){
     return j.toStyledString();
 }
 
-std::string VM_Controller::get_vm_detail(int domain_id){
+std::string VM_Controller::get_vm_detail_by_name(std::string domain_name){
+    Json::Value j;
+    virDomainPtr dom = virDomainLookupByName(_conn, domain_name);
+    if(dom == NULL){
+        Json::Value j;
+        j["status"] = "no such domain";
+        return j.toStyledString();
+    }
+    std::string res = get_vm_detail(dom);
+    virDomainFree(dom);
+    return res;
+}
+
+std::string VM_Controller::get_vm_detail(virDomainPtr dom){
     Json::Value j;
     j["status"] = "ok";
-    virDomainPtr dom = virDomainLookupByID(_conn, domain_id);
     virDomainInfo info;
     if(virDomainGetInfo(dom, &info) < 0){
         LOG_ERROR("could not get domain info");
@@ -99,10 +111,15 @@ std::string VM_Controller::get_vm_detail(int domain_id){
         return j.toStyledString();
     }
     // basic info
-    j["id"] = domain_id;
-    j["mem_total"] = (unsigned long long)info.maxMem;
-    j["vcpu"] = info.nrVirtCpu;
+    int state;
+    virDomainGetState(dom, &state, NULL, 0);
+    j["vm_status"] = state_code2string(state);
+    if(virDomainIsActive(dom)){
+        j["id"] = virDomainGetID(dom);
+    }
     j["name"] = virDomainGetName(dom);
+    j["vcpu"] = virDomainGetMaxVcpus(dom);
+    j["mem_total"] = virDomainGetMaxMemory(dom);
 
     // more detailed info
     char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
@@ -111,8 +128,21 @@ std::string VM_Controller::get_vm_detail(int domain_id){
     j["img_path"] = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("disk")->FirstChildElement("source")->Attribute("file");
     tinyxml2::XMLElement *graphics = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("graphics");
     j["vnc_port"] = graphics->Attribute("port");
+
+    virDomainFree(dom);
     
     return j.toStyledString();
+}
+std::string VM_Controller::get_vm_detail_by_id(int domain_id){
+    virDomainPtr dom = virDomainLookupByID(_conn, domain_id);
+    if(dom == NULL){
+        Json::Value j;
+        j["status"] = "no such domain";
+        return j.toStyledString();
+    }
+    std::string res = get_vm_detail(dom);
+    virDomainFree(dom);
+    return res;
 }
 
 std::string VM_Controller::close_vm(int domain_id){
@@ -131,3 +161,17 @@ std::string VM_Controller::close_vm(int domain_id){
     return j.toStyledString();
 }
 
+
+std::string VM_Controller::state_code2string(int state){
+    switch state{
+        case VIR_DOMAIN_NOSTATE: return "nostate";
+        case VIR_DOMAIN_RUNNING: return "running";
+        case VIR_DOMAIN_BLOCKED: return "blocked";
+        case VIR_DOMAIN_PAUSED: return "paused";
+        case VIR_DOMAIN_SHUTDOWN: return "shutdown";
+        case VIR_DOMAIN_SHUTOFF: return "shutoff";
+        case VIR_DOMAIN_CRASHED: return "crashed";
+        case VIR_DOMAIN_PMSUSPENDED: return "suspended";
+        }
+    return "unknown";
+}
