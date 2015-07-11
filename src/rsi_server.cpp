@@ -136,22 +136,6 @@ again:
                 return -1;
             }
         }
-        else if(strings[0] == "GET_VM_DETAIL"){
-            std::string response;
-            if(strings.size() == 1){
-                LOG_ERROR("GET_VM_DETAIL needs 2 arguments");
-                response = "{\"status\": \"GET_VM_DETAIL needs 2 arguments\"}";
-            }
-            else{
-                int vm_id = atoi(strings[1].c_str());
-                response = vm_controller.get_vm_detail(vm_id);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
         else if(strings[0] == "GET_VM_DETAIL_BY_NAME"){
             std::string response;
             if(strings.size() == 1){

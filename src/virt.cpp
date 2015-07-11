@@ -16,7 +16,7 @@ VM_Controller::~VM_Controller(){
     virConnectClose(_conn);
 }
 
-int VM_Controller::CreateVM(int vcpu, int mem, std::string img_path){
+int VM_Controller::create_vm(int vcpu, int mem, std::string img_path){
     
     return 0;
 }
@@ -90,7 +90,7 @@ std::string VM_Controller::get_vm_info(){
 
 std::string VM_Controller::get_vm_detail_by_name(std::string domain_name){
     Json::Value j;
-    virDomainPtr dom = virDomainLookupByName(_conn, domain_name);
+    virDomainPtr dom = virDomainLookupByName(_conn, domain_name.c_str());
     if(dom == NULL){
         Json::Value j;
         j["status"] = "no such domain";
@@ -119,7 +119,7 @@ std::string VM_Controller::get_vm_detail(virDomainPtr dom){
     }
     j["name"] = virDomainGetName(dom);
     j["vcpu"] = virDomainGetMaxVcpus(dom);
-    j["mem_total"] = virDomainGetMaxMemory(dom);
+    j["mem_total"] = (unsigned long long)virDomainGetMaxMemory(dom);
 
     // more detailed info
     char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
@@ -163,7 +163,7 @@ std::string VM_Controller::close_vm(int domain_id){
 
 
 std::string VM_Controller::state_code2string(int state){
-    switch state{
+    switch(state){
         case VIR_DOMAIN_NOSTATE: return "nostate";
         case VIR_DOMAIN_RUNNING: return "running";
         case VIR_DOMAIN_BLOCKED: return "blocked";
@@ -171,7 +171,6 @@ std::string VM_Controller::state_code2string(int state){
         case VIR_DOMAIN_SHUTDOWN: return "shutdown";
         case VIR_DOMAIN_SHUTOFF: return "shutoff";
         case VIR_DOMAIN_CRASHED: return "crashed";
-        case VIR_DOMAIN_PMSUSPENDED: return "suspended";
         }
     return "unknown";
 }
