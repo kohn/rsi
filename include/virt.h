@@ -8,6 +8,8 @@ private:
     virConnectPtr _conn;
     std::string state_code2string(int state);
     std::string get_vm_detail(virDomainPtr dom);
+    std::string _get_vm_mac(virDomainPtr dom);
+
 public:
     int create_vm(int vcpu, int mem, std::string img_path);
     /* [
@@ -50,6 +52,9 @@ public:
      * }
     */
     std::string close_vm(int domain_id);
+    std::string get_vm_ip_by_name(std::string domain_name);
+    // do port forwarding on the host
+    std::string port_forward(std::string host_ip_address, std::string ip_address, std::string port);
     VM_Controller();
     ~VM_Controller();
 };

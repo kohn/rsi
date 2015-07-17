@@ -69,6 +69,8 @@ int RsiServer::listen_port(int port){
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port = htons(port);
 
+    int opt=1;
+    setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
     if(bind(sockfd, (struct sockaddr *)(&server_addr), sizeof(struct sockaddr)) < 0)
     {
         perror("bind error");
@@ -151,7 +153,6 @@ again:
                 return -1;
             }
         }
-
         else if(strings[0] == "OPEN_VM"){
             std::string response;
             if(strings.size() == 1){
@@ -183,6 +184,43 @@ again:
                 return -1;
             }
         }
+        else if(strings[0] == "GET_VM_IP"){
+            std::string response;
+            if(strings.size() == 1){
+                LOG_ERROR("GET_VM_IP needs 1 arguments");
+                response = "{\"status\": \"GET_VM_IP needs 1 arguments\"}";
+            }
+            else{
+                std::string vm_name = strings[1].c_str();
+                response = vm_controller.get_vm_ip_by_name(vm_name);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        else if(strings[0] == "PORT_FORWARD"){
+            std::string response;
+            if(strings.size() != 4){
+                LOG_ERROR("PORT_FORWARD needs 3 arguments");
+                response = "{\"status\": \"PORT_FORWARD needs 3 arguments\"}";
+            }
+            else{
+                std::string host_ip_address = strings[1];
+                std::string guest_ip_address = strings[2];
+                std::string guest_port = strings[3];
+                response = vm_controller.port_forward(host_ip_address,
+                                                      guest_ip_address,
+                                                      guest_port);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+
         else {
             std::string response = "{\"status\": \"cmd not recognized\"}";
             if(write(client_sockfd, response.c_str(), response.length()) < 0){
