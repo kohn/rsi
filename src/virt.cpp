@@ -7,6 +7,12 @@
 #include <vector>
 #include <fstream>
 #include "tools.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include "rsi_client.h"
+#include <cstdlib>
+#include <unistd.h>
 VM_Controller::VM_Controller(){
     _conn = virConnectOpen("qemu:///system");
     if(_conn == NULL){
@@ -52,7 +58,9 @@ std::string VM_Controller::get_vm_info(){
     int numActiveDomains = virConnectNumOfDomains(_conn);
     int *activeDomainsIDs = (int *)malloc(sizeof(int) * numActiveDomains);
     
-    numActiveDomains = virConnectListDomains(_conn, activeDomainsIDs, numActiveDomains);
+    numActiveDomains = virConnectListDomains(_conn,
+                                             activeDomainsIDs,
+                                             numActiveDomains);
     for (int i = 0 ; i < numActiveDomains ; i++) {
         virDomainPtr dom = virDomainLookupByID(_conn, activeDomainsIDs[i]);
         virDomainInfo info;
@@ -71,15 +79,17 @@ std::string VM_Controller::get_vm_info(){
     free(activeDomainsIDs);
 
     int numInactiveDomains = virConnectNumOfDefinedDomains(_conn);
-    char **inactiveDomainsNames = (char **)malloc(sizeof(char *) * numInactiveDomains);
-    numInactiveDomains = virConnectListDefinedDomains(_conn, inactiveDomainsNames, numInactiveDomains);
+    char **inactiveDomainsNames = (char **)malloc(sizeof(char *)
+                                                  * numInactiveDomains);
+    numInactiveDomains = virConnectListDefinedDomains(_conn,
+                                                      inactiveDomainsNames,
+                                                      numInactiveDomains);
     if(numInactiveDomains < 0){
         LOG_ERROR("could not get defined domains");
         exit(-1);
     }
     
     for(int i=0; i< numInactiveDomains; i++){
-        //virDomainPtr dom = virDomainLookupByName(inactiveDomainsNames[i]);
         Json::Value j_dom(Json::objectValue);
         j_dom["status"] = "shutoff";
         j_dom["name"] = inactiveDomainsNames[i];
@@ -128,8 +138,14 @@ std::string VM_Controller::get_vm_detail(virDomainPtr dom){
     char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
     tinyxml2::XMLDocument doc;
     doc.Parse(domain_xml);
-    j["img_path"] = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("disk")->FirstChildElement("source")->Attribute("file");
-    tinyxml2::XMLElement *graphics = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("graphics");
+    j["img_path"] = doc.RootElement()
+        ->FirstChildElement("devices")
+        ->FirstChildElement("disk")
+        ->FirstChildElement("source")
+        ->Attribute("file");
+    tinyxml2::XMLElement *graphics = doc.RootElement()
+        ->FirstChildElement("devices")
+        ->FirstChildElement("graphics");
     j["vnc_port"] = graphics->Attribute("port");
 
     virDomainFree(dom);
@@ -167,28 +183,35 @@ std::string VM_Controller::close_vm(int domain_id){
 
 std::string VM_Controller::state_code2string(int state){
     switch(state){
-        case VIR_DOMAIN_NOSTATE: return "nostate";
-        case VIR_DOMAIN_RUNNING: return "running";
-        case VIR_DOMAIN_BLOCKED: return "blocked";
-        case VIR_DOMAIN_PAUSED: return "paused";
-        case VIR_DOMAIN_SHUTDOWN: return "shutdown";
-        case VIR_DOMAIN_SHUTOFF: return "shutoff";
-        case VIR_DOMAIN_CRASHED: return "crashed";
-        }
+    case VIR_DOMAIN_NOSTATE: return "nostate";
+    case VIR_DOMAIN_RUNNING: return "running";
+    case VIR_DOMAIN_BLOCKED: return "blocked";
+    case VIR_DOMAIN_PAUSED: return "paused";
+    case VIR_DOMAIN_SHUTDOWN: return "shutdown";
+    case VIR_DOMAIN_SHUTOFF: return "shutoff";
+    case VIR_DOMAIN_CRASHED: return "crashed";
+    }
     return "unknown";
 }
 
 std::string VM_Controller::_get_vm_mac(virDomainPtr dom){
-    char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
+    char *domain_xml = virDomainGetXMLDesc(dom,
+                                           VIR_DOMAIN_XML_SECURE);
     tinyxml2::XMLDocument doc;
     doc.Parse(domain_xml);
-    std::string mac = doc.RootElement()->FirstChildElement("devices")->FirstChildElement("interface")->FirstChildElement("mac")->Attribute("address");
+    std::string mac = doc.RootElement()
+        ->FirstChildElement("devices")
+        ->FirstChildElement("interface")
+        ->FirstChildElement("mac")
+        ->Attribute("address");
     return mac;
 }
 
+
+// read /var/lib/libvirt/dnsmasq/default.leases to get ip
+// domain must use DHCP
 std::string VM_Controller::get_vm_ip_by_name(std::string domain_name){
     LOG_INFO(domain_name);
-
     Json::Value j;
     virDomainPtr dom = virDomainLookupByName(_conn, domain_name.c_str());
     if(dom == NULL){
@@ -221,7 +244,9 @@ std::string VM_Controller::get_vm_ip_by_name(std::string domain_name){
     return j.toStyledString();
 }
 
-std::string VM_Controller::port_forward(std::string host_ip_address, std::string ip_address, std::string port){
+std::string VM_Controller::port_forward(std::string host_ip_address,
+                                        std::string ip_address,
+                                        std::string port){
     std::vector<std::string> v;
     Tools::split(ip_address, v, '.');
     std::string host_port = v[3] + port;
@@ -244,4 +269,108 @@ std::string VM_Controller::port_forward(std::string host_ip_address, std::string
     j["status"] = "ok";
     j["host_port"] = host_port;
     return j.toStyledString();
+}
+
+int VM_Controller::get_image_fd_by_name(std::string vm_name){
+    virDomainPtr dom = virDomainLookupByName(_conn, vm_name.c_str());
+    if(dom == NULL){
+        return -1;
+    }
+    std::string img_path = _get_vm_image_path(dom);
+    virDomainFree(dom);
+
+    int fd = open(img_path.c_str(), O_RDONLY);
+    return fd;
+}
+std::string VM_Controller::_get_vm_image_path(virDomainPtr dom){
+    char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
+    tinyxml2::XMLDocument doc;
+    doc.Parse(domain_xml);
+    std::string img_path = doc.RootElement()
+        ->FirstChildElement("devices")
+        ->FirstChildElement("disk")
+        ->FirstChildElement("source")
+        ->Attribute("file");
+    return img_path;
+}
+
+long VM_Controller::_get_vm_image_size(virDomainPtr dom){
+    std::string img_path = _get_vm_image_path(dom);
+    struct stat file_stat;
+    if(stat(img_path.c_str(), &file_stat) == 0){
+        return file_stat.st_size;
+    }
+    else{
+        perror("_get_file_size");
+        return -1l;
+    }
+}
+
+long VM_Controller::get_image_size_by_name_in_long(std::string vm_name){
+    virDomainPtr dom = virDomainLookupByName(_conn, vm_name.c_str());
+    if(dom == NULL){
+        return -1l;
+    }
+    else
+        return _get_vm_image_size(dom);
+}
+
+std::string VM_Controller::fetch_image_by_name(std::string host_ip,
+                                               int rsi_server_port,
+                                               std::string vm_name){
+    Json::Value j;
+    RSIClient rsi_client(host_ip, rsi_server_port);
+    if(!rsi_client.good()){
+        j["status"] = "could not connect to host";
+        return j.toStyledString();
+    }
+
+    std::string msg = "GET_IMAGE_FD_BY_NAME ";
+    msg += vm_name;
+    std::string fd_and_size = rsi_client.communicate(msg);
+
+    std::stringstream ss(fd_and_size);
+    std::string fd;
+    long filesize;
+    ss >> fd;
+    // check fd is valid
+    if( fd == "-1"){
+        j["status"] = "remote server could not open image file";
+        return j.toStyledString();
+    }
+    ss >> filesize;
+
+    // find a available file name for the new image
+    int img_version = 0;
+    std::string imgdir = "/opt/";
+    while(1){
+        std::stringstream tmpname;
+        tmpname << imgdir << vm_name << img_version << ".img";
+        int fd = open(tmpname.str().c_str(), O_RDONLY);
+        if(fd == -1){
+            close(fd);
+            break;
+        }
+        else{
+            img_version++;
+            close(fd);
+        }
+    }
+    std::stringstream tmpname;
+    tmpname << imgdir << vm_name << img_version << ".img";
+    std::string img_name = tmpname.str();
+    LOG_INFO(img_name);
+
+    // use rsi_client to download image from remote rsi_server
+    msg = "GET_IMAGE_BY_FD ";
+    msg += fd;
+    if( rsi_client.download(msg, img_name, filesize) == 0){
+        j["status"] = "ok";
+        j["img_path"] = img_name;
+        return j.toStyledString();
+    }
+    else{
+        j["status"] = "download error";
+        return j.toStyledString();
+    }
 }

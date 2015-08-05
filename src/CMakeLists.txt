@@ -12,6 +12,7 @@ SET(SRC_LISTS
   jsoncpp.cpp
   tinyxml2.cpp
   virt.cpp
+  rsi_client.cpp
   )
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)

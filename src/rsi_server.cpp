@@ -220,6 +220,76 @@ again:
                 return -1;
             }
         }
+        // for other rsi_server B to get the image fd specified by vm_name on A
+        else if(strings[0] == "GET_IMAGE_FD_BY_NAME"){
+            std::stringstream s;
+            if(strings.size() != 2){
+                LOG_ERROR("GET_IMAGE_FD_BY_NAME needs 1 argument");
+                s << "{\"status\": \"GET_IMAGE_FD_BY_NAME needs 1 argument\"}";
+            }
+            else{
+                std::string vm_name = strings[1];
+                // get fd but do not close it. close it after reading.
+                int fd = vm_controller.get_image_fd_by_name(vm_name);
+                s << fd;
+                s << " ";
+                long filesize = vm_controller.get_image_size_by_name_in_long(vm_name);
+                s << filesize;
+            }
+            DEBUG(s.str());
+            if(write(client_sockfd, s.str().c_str(), s.str().length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
+        // for other rsi_server B to get the image specified by fd on A
+        else if(strings[0] == "GET_IMAGE_BY_FD"){
+            if(strings.size() != 2){
+                LOG_ERROR("GET_IMAGE_BY_FD needs 1 argument");
+                if(write(client_sockfd, "", 1) < 0){
+                    perror("write error");
+                    return -1;
+                }
+            }
+            else{
+                int fd = atoi(strings[1].c_str());
+                char buffer[4096];
+                while(1){
+                    int read_count = read(fd, buf, 4096);
+                    if(read_count < 0){
+                        perror("read error");
+                        return -1;
+                    }
+                    else if(read_count == 0)
+                        break;
+                    
+                    if(write(client_sockfd, buffer, read_count) < 0){
+                        perror("write error");
+                        return -1;
+                    }
+                }
+                close(fd);
+            }
+        }
+        // fetch image from another rsi_server
+        else if(strings[0] == "FETCH_IMAGE_BY_NAME"){
+            std::string response;
+            if(strings.size() != 4){
+                LOG_ERROR("FETCH_IMAGE_BY_NAME needs 3 arguments");
+                response = "{\"status\": \"FETCH_IMAGE_BY_NAME needs 3 arguments\"}";
+            }
+            else{
+                std::string host_ip = strings[1];
+                int rsi_server_port = atoi(strings[2].c_str());
+                std::string vm_name = strings[3];
+                response = vm_controller.fetch_image_by_name(host_ip, rsi_server_port, vm_name);
+            }
+            DEBUG(response);
+            if(write(client_sockfd, response.c_str(), response.length()) < 0){
+                perror("write error");
+                return -1;
+            }
+        }
 
         else {
             std::string response = "{\"status\": \"cmd not recognized\"}";
