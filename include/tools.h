@@ -20,7 +20,9 @@ public:
     bool ReadConfig(const std::string & filename, std::map<std::string, std::string> &m);
     void PrintConfig(const std::map<std::string, std::string> &m);
     std::string JsonEncode(std::map<std::string, std::string> &m);
+    
 
     static void split(std::string s, std::vector<std::string> &v, char delim);
+    static std::string to_string(int num, int base);
 };
 #endif

@@ -18,9 +18,10 @@
 #include "globals.h"
 #include "tools.h"
 #include <vector>
+#include "core.h"
 
 RsiServer::RsiServer(int port, SysInfo *sysinfo){
-    this->sysinfo = sysinfo;
+    this->_sysinfo = sysinfo;
     if(signal(SIGCHLD, sig_child) == SIG_ERR){
         LOG_ERROR("could not bind SIGCHLD to sig_child");
         exit(-1);
@@ -93,223 +94,290 @@ int RsiServer::accept_client(int server_sockfd){
 }
 
 int RsiServer::communicate(int client_sockfd){
-    int read_num;
     char buf[4096];
-again:
-    if((read_num = read(client_sockfd, buf, 4095))> 0){
+    try{
+        int read_num = Networking::read_msg(client_sockfd, buf);
         buf[read_num] = '\0';
         LOG_INFO(buf);
-        std::vector<std::string> strings;
-        std::string str(buf);
-        Tools::split(str, strings, ' ');
-        if(strings.size() == 0){
-            LOG_ERROR("could not get any valid string from socket READ");
-            return -1;
-        }
-        if(strings[0] == "GET_HOST_MEM_USAGE"){
-            std::string response = sysinfo->get_host_mem_usage();
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "GET_HOST_NODE_INFO"){
-            std::string response = sysinfo->get_host_node_info();
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] ==  "GET_VM_INFO"){
-            std::string response = vm_controller.get_vm_info();
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "GET_HOST_CPU_USAGE"){
-            std::string response = sysinfo->get_host_cpu_usage();
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "GET_VM_DETAIL_BY_NAME"){
-            std::string response;
-            if(strings.size() == 1){
-                LOG_ERROR("GET_VM_DETAIL_BY_NAME needs 2 arguments");
-                response = "{\"status\": \"GET_VM_DETAIL_BY_NAME needs 2 arguments\"}";
-            }
-            else{
-                response = vm_controller.get_vm_detail_by_name(strings[1]);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "OPEN_VM"){
-            std::string response;
-            if(strings.size() == 1){
-                LOG_ERROR("OPEN_VM needs 2 arguments");
-                response = "{\"status\": \"OPEN_VM needs 2 arguments\"}";
-            }
-            else{
-                response = vm_controller.open_vm(strings[1]);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "CLOSE_VM"){
-            std::string response;
-            if(strings.size() == 1){
-                LOG_ERROR("CLOSE_VM needs 2 arguments");
-                response = "{\"status\": \"CLOSE_VM needs 2 arguments\"}";
-            }
-            else{
-                int vm_id = atoi(strings[1].c_str());
-                response = vm_controller.close_vm(vm_id);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "GET_VM_IP"){
-            std::string response;
-            if(strings.size() == 1){
-                LOG_ERROR("GET_VM_IP needs 1 arguments");
-                response = "{\"status\": \"GET_VM_IP needs 1 arguments\"}";
-            }
-            else{
-                std::string vm_name = strings[1].c_str();
-                response = vm_controller.get_vm_ip_by_name(vm_name);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        else if(strings[0] == "PORT_FORWARD"){
-            std::string response;
-            if(strings.size() != 4){
-                LOG_ERROR("PORT_FORWARD needs 3 arguments");
-                response = "{\"status\": \"PORT_FORWARD needs 3 arguments\"}";
-            }
-            else{
-                std::string host_ip_address = strings[1];
-                std::string guest_ip_address = strings[2];
-                std::string guest_port = strings[3];
-                response = vm_controller.port_forward(host_ip_address,
-                                                      guest_ip_address,
-                                                      guest_port);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        // for other rsi_server B to get the image fd specified by vm_name on A
-        else if(strings[0] == "GET_IMAGE_FD_BY_NAME"){
-            std::stringstream s;
-            if(strings.size() != 2){
-                LOG_ERROR("GET_IMAGE_FD_BY_NAME needs 1 argument");
-                s << "{\"status\": \"GET_IMAGE_FD_BY_NAME needs 1 argument\"}";
-            }
-            else{
-                std::string vm_name = strings[1];
-                // get fd but do not close it. close it after reading.
-                int fd = vm_controller.get_image_fd_by_name(vm_name);
-                s << fd;
-                s << " ";
-                long filesize = vm_controller.get_image_size_by_name_in_long(vm_name);
-                s << filesize;
-            }
-            DEBUG(s.str());
-            if(write(client_sockfd, s.str().c_str(), s.str().length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-        // for other rsi_server B to get the image specified by fd on A
-        else if(strings[0] == "GET_IMAGE_BY_FD"){
-            if(strings.size() != 2){
-                LOG_ERROR("GET_IMAGE_BY_FD needs 1 argument");
-                if(write(client_sockfd, "", 1) < 0){
-                    perror("write error");
-                    return -1;
-                }
-            }
-            else{
-                int fd = atoi(strings[1].c_str());
-                char buffer[4096];
-                while(1){
-                    int read_count = read(fd, buf, 4096);
-                    if(read_count < 0){
-                        perror("read error");
-                        return -1;
-                    }
-                    else if(read_count == 0)
-                        break;
-                    
-                    if(write(client_sockfd, buffer, read_count) < 0){
-                        perror("write error");
-                        return -1;
-                    }
-                }
-                close(fd);
-            }
-        }
-        // fetch image from another rsi_server
-        else if(strings[0] == "FETCH_IMAGE_BY_NAME"){
-            std::string response;
-            if(strings.size() != 4){
-                LOG_ERROR("FETCH_IMAGE_BY_NAME needs 3 arguments");
-                response = "{\"status\": \"FETCH_IMAGE_BY_NAME needs 3 arguments\"}";
-            }
-            else{
-                std::string host_ip = strings[1];
-                int rsi_server_port = atoi(strings[2].c_str());
-                std::string vm_name = strings[3];
-                response = vm_controller.fetch_image_by_name(host_ip, rsi_server_port, vm_name);
-            }
-            DEBUG(response);
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
-
-        else {
-            std::string response = "{\"status\": \"cmd not recognized\"}";
-            if(write(client_sockfd, response.c_str(), response.length()) < 0){
-                perror("write error");
-                return -1;
-            }
-        }
     }
-    else if(read_num <0 && errno==EINTR){
-        perror("read interrupt");
-        goto again;
-    }
-    else if(read_num < 0){
-        perror("read error");
+    catch(NetworkError){
+        LOG_ERROR("Network Error");
         return -1;
     }
-    else{
-        close(client_sockfd);
+    catch(LocalError){
+        LOG_ERROR("Local Error");
+        return -1;
+    }
+    
+    
+    std::vector<std::string> strings;
+    std::string str(buf);
+    Tools::split(str, strings, ' ');
+    if(strings.size() == 0){
+        LOG_ERROR("could not get any valid string from socket READ");
+        return -1;
+    }
+
+    try{
+        if(strings[0] == "GET_HOST_MEM_USAGE"){
+            return response_host_mem_usage(client_sockfd);
+        }
+        if(strings[0] == "GET_HOST_NODE_INFO"){
+            return response_host_node_info(client_sockfd);
+        }
+        if(strings[0] ==  "GET_VM_INFO"){
+            return response_vm_info(client_sockfd);
+        }
+        if(strings[0] == "GET_HOST_CPU_USAGE"){
+            return response_host_cpu_usage(client_sockfd);
+        }
+        if(strings[0] == "GET_VM_DETAIL_BY_NAME"){
+            return response_vm_detail_by_name(strings, client_sockfd);
+        }
+        if(strings[0] == "OPEN_VM"){
+            return response_open_vm(strings, client_sockfd);
+        }
+        if(strings[0] == "CLOSE_VM"){
+            return response_close_vm(strings, client_sockfd);
+        }
+        if(strings[0] == "GET_VM_IP"){
+            return response_vm_ip(strings, client_sockfd);
+        }
+        if(strings[0] == "PORT_FORWARD"){
+            return response_port_forward(strings, client_sockfd);
+        }
+        // for other rsi_server B to get the image fd specified by vm_name on A
+        if(strings[0] == "GET_IMAGE_FD_BY_NAME"){
+            return response_image_fd_by_name(strings, client_sockfd);
+        }
+        // for other rsi_server B to get the image specified by fd on A
+        if(strings[0] == "GET_IMAGE_BY_FD"){
+            return response_image_by_fd(strings, client_sockfd);
+        }
+        // fetch image from another rsi_server
+        if(strings[0] == "FETCH_IMAGE_BY_NAME"){
+            return response_fetch_image_by_name(strings, client_sockfd);
+        }
+        if(strings[0] == "GET_JOB_PROGRESS"){
+            return response_job_progress(strings, client_sockfd);
+        }
+        if(strings[0] == "NEW_VM_CONFIG"){
+            return response_new_vm_config(strings, client_sockfd);
+        }
+        std::string response = "{\"status\": \"cmd not recognized\"}";
+        Networking::write(client_sockfd, response.c_str(), response.length());
+    }
+    catch(NetworkError &e){
+        LOG_ERROR("Network Error");
+        return -1;
+    }
+    catch(LocalError &e){
+        LOG_ERROR("Local Error");
         return -1;
     }
     return 0;
+}
+
+int RsiServer::response_host_mem_usage(int client_sockfd){
+    std::string response = _sysinfo->get_host_mem_usage();
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_host_node_info(int client_sockfd){
+    std::string response = _sysinfo->get_host_node_info();
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_host_cpu_usage(int client_sockfd){
+    std::string response = _sysinfo->get_host_cpu_usage();
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+
+int RsiServer::response_vm_info(int client_sockfd){
+    std::string response = _vm_controller.get_vm_info();
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+
+int RsiServer::response_vm_detail_by_name(std::vector<std::string> &strings,
+                                          int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_VM_DETAIL_BY_NAME", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    response = _vm_controller.get_vm_detail_by_name(strings[1]);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_open_vm(std::vector<std::string> &strings,
+                                int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("OPEN_VM", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    response = _vm_controller.open_vm(strings[1]);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_close_vm(std::vector<std::string> &strings,
+                                 int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("CLOSE_VM", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    int vm_id = atoi(strings[1].c_str());
+    response = _vm_controller.close_vm(vm_id);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_vm_ip(std::vector<std::string> &strings,
+                              int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_VM_IP", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    std::string vm_name = strings[1].c_str();
+    response = _vm_controller.get_vm_ip_by_name(vm_name);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_port_forward(std::vector<std::string> &strings,
+                                     int client_sockfd){
+    std::string response;
+    if(strings.size() != 4){
+        response = _make_cmd_size_mismatch_msg("PORT_FORWARD", 4);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    std::string host_ip_address = strings[1];
+    std::string guest_ip_address = strings[2];
+    std::string guest_port = strings[3];
+    response = _vm_controller.port_forward(host_ip_address,
+                                           guest_ip_address,
+                                           guest_port);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_image_fd_by_name(std::vector<std::string> &strings,
+                                         int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_IMAGE_FD_BY_NAME", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    std::stringstream s;
+    std::string vm_name = strings[1];
+    // get fd but do not close it. close it after reading.
+    int fd = _vm_controller.get_image_fd_by_name(vm_name);
+    long long filesize = _vm_controller.get_image_size_by_name_in_ll(vm_name);
+    s << fd << " " << filesize;
+    DEBUG(s.str());
+    Networking::write(client_sockfd, s.str().c_str(), s.str().length());
+    return 0;
+}
+
+// always return -1 after sending image, so that to close the socket
+int RsiServer::response_image_by_fd(std::vector<std::string> &strings,
+                                    int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_IMAGE_BY_FD", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    int fd = atoi(strings[1].c_str());
+    char buffer[4096];
+    while(1){
+        int read_count = read(fd, buffer, 4096);
+        if(read_count < 0){
+            perror("read error");
+            response = "{\"status\": \"read fd error\"}";
+            Networking::write(client_sockfd, response.c_str(), response.length());
+            return -1;
+        }
+        else if(read_count == 0)
+            break;
+        Networking::write(client_sockfd, buffer, read_count);
+    }
+    response = "{\"status\": \"ok\"}";
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    close(fd);
+    return -1;
+}
+int RsiServer::response_fetch_image_by_name(std::vector<std::string> &strings,
+                                            int client_sockfd){
+    std::string response;
+    if(strings.size() != 5){
+        response = _make_cmd_size_mismatch_msg("FETCH_IMAGE_BY_NAME", 5);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    std::string host_ip = strings[1];
+    int rsi_server_port = atoi(strings[2].c_str());
+    std::string vm_name = strings[3];
+    std::string new_name = strings[4];
+    response = _vm_controller.fetch_image_by_name(host_ip, rsi_server_port, vm_name, new_name);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_job_progress(std::vector<std::string> &strings,
+                                     int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_JOB_PROCESS", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    int job_id = atoi(strings[1].c_str());
+    response = _vm_controller.get_job_progress(job_id);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+int RsiServer::response_new_vm_config(std::vector<std::string> &strings,
+                                      int client_sockfd){
+    std::string response;
+    if(strings.size() != 5){
+        response = _make_cmd_size_mismatch_msg("NEW_VM_CONFIG", 5);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    std::string vm_name = strings[1];
+    std::string img_path = strings[2];
+    int cpu_num = atoi(strings[3].c_str());
+    int memory_in_mb = atoi(strings[4].c_str());
+    response = _vm_controller.new_vm_config(vm_name, img_path, cpu_num, memory_in_mb);
+    DEBUG(response);
+    Networking::write(client_sockfd, response.c_str(), response.length());
+    return 0;
+}
+
+std::string RsiServer::_make_cmd_size_mismatch_msg(std::string cmd, int size_wanted){
+    std::stringstream ss;                                           
+    ss << cmd << " needs " << size_wanted - 1 << " arguments";
+    LOG_INFO(ss.str());
+    std::string response;
+    response = "{\"status\": \"";
+    response += ss.str() + "\"}";
+    return response;
 }

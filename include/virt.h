@@ -10,7 +10,7 @@ private:
     std::string get_vm_detail(virDomainPtr dom);
     std::string _get_vm_mac(virDomainPtr dom);
     std::string _get_vm_image_path(virDomainPtr dom);
-    long _get_vm_image_size(virDomainPtr dom);
+    long long _get_vm_image_size(virDomainPtr dom);
 
 public:
     int create_vm(int vcpu, int mem, std::string img_path);
@@ -61,9 +61,12 @@ public:
                              std::string port);
     std::string fetch_image_by_name(std::string host_ip,
                                     int rsi_server_port,
-                                    std::string vm_name);
-    long get_image_size_by_name_in_long(std::string vm_name);
+                                    std::string vm_name,
+                                    std::string new_name);
+    long long get_image_size_by_name_in_ll(std::string vm_name);
     int get_image_fd_by_name(std::string vm_name); // do remember to close the returned fd.
+    std::string get_job_progress(int job_id);
+    std::string new_vm_config(std::string vm_name, std::string img_path, int cpu_num, int mem_in_mb);
     VM_Controller();
     ~VM_Controller();
 };

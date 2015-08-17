@@ -108,3 +108,12 @@ void Tools::split(std::string s, std::vector<std::string> &v, char delim){
     }
 }
 
+
+std::string Tools::to_string(int num, int base=10){
+    std::stringstream ss;
+    if(base == 10)
+        ss << std::dec << num;
+    else if(base == 16)
+        ss << std::hex << num;
+    return ss.str();
+}

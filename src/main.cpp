@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     if(argc == 2 && strcmp(argv[1], "-d") == 0){
         daemon(0, 0);
     }
-    
+
     NativeImplementSysInfo native_sysinfo;
     RsiServer rsi_server(port, &native_sysinfo);
     

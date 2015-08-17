@@ -10,9 +10,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include "rsi_client.h"
+#include "rsi_clients.h"
 #include <cstdlib>
 #include <unistd.h>
+#include <uuid/uuid.h>
+
 VM_Controller::VM_Controller(){
     _conn = virConnectOpen("qemu:///system");
     if(_conn == NULL){
@@ -294,7 +296,7 @@ std::string VM_Controller::_get_vm_image_path(virDomainPtr dom){
     return img_path;
 }
 
-long VM_Controller::_get_vm_image_size(virDomainPtr dom){
+long long VM_Controller::_get_vm_image_size(virDomainPtr dom){
     std::string img_path = _get_vm_image_path(dom);
     struct stat file_stat;
     if(stat(img_path.c_str(), &file_stat) == 0){
@@ -302,14 +304,14 @@ long VM_Controller::_get_vm_image_size(virDomainPtr dom){
     }
     else{
         perror("_get_file_size");
-        return -1l;
+        return -1ll;
     }
 }
 
-long VM_Controller::get_image_size_by_name_in_long(std::string vm_name){
+long long VM_Controller::get_image_size_by_name_in_ll(std::string vm_name){
     virDomainPtr dom = virDomainLookupByName(_conn, vm_name.c_str());
     if(dom == NULL){
-        return -1l;
+        return -1ll;
     }
     else
         return _get_vm_image_size(dom);
@@ -317,35 +319,17 @@ long VM_Controller::get_image_size_by_name_in_long(std::string vm_name){
 
 std::string VM_Controller::fetch_image_by_name(std::string host_ip,
                                                int rsi_server_port,
-                                               std::string vm_name){
+                                               std::string vm_name,
+                                               std::string new_name){
     Json::Value j;
-    RSIClient rsi_client(host_ip, rsi_server_port);
-    if(!rsi_client.good()){
-        j["status"] = "could not connect to host";
-        return j.toStyledString();
-    }
-
-    std::string msg = "GET_IMAGE_FD_BY_NAME ";
-    msg += vm_name;
-    std::string fd_and_size = rsi_client.communicate(msg);
-
-    std::stringstream ss(fd_and_size);
-    std::string fd;
-    long filesize;
-    ss >> fd;
-    // check fd is valid
-    if( fd == "-1"){
-        j["status"] = "remote server could not open image file";
-        return j.toStyledString();
-    }
-    ss >> filesize;
+    RSIClients * clients = RSIClients::get_instance();
 
     // find a available file name for the new image
     int img_version = 0;
-    std::string imgdir = "/opt/";
+    std::string imgdir = "/mnt/arclab_nfs/184/sdb/veka_images/";
     while(1){
         std::stringstream tmpname;
-        tmpname << imgdir << vm_name << img_version << ".img";
+        tmpname << imgdir << new_name << img_version << ".img";
         int fd = open(tmpname.str().c_str(), O_RDONLY);
         if(fd == -1){
             close(fd);
@@ -357,20 +341,86 @@ std::string VM_Controller::fetch_image_by_name(std::string host_ip,
         }
     }
     std::stringstream tmpname;
-    tmpname << imgdir << vm_name << img_version << ".img";
+    tmpname << imgdir << new_name << img_version << ".img";
     std::string img_name = tmpname.str();
     LOG_INFO(img_name);
 
-    // use rsi_client to download image from remote rsi_server
-    msg = "GET_IMAGE_BY_FD ";
-    msg += fd;
-    if( rsi_client.download(msg, img_name, filesize) == 0){
-        j["status"] = "ok";
-        j["img_path"] = img_name;
+    int jobid = clients->download_img(host_ip, rsi_server_port, vm_name, img_name);
+    j["status"] = "ok";
+    j["jobid"] = jobid;
+    j["imagepath"] = img_name;
+    return j.toStyledString();
+}
+
+
+std::string VM_Controller::get_job_progress(int job_id){
+    RSIClients * clients = RSIClients::get_instance();
+    int progress = clients->download_progress(job_id);
+    Json::Value j;
+
+    if(progress < 0){
+        j["status"] = "no such job";
+        return j.toStyledString();
+    }
+    
+    j["status"] = "ok";
+    j["progress"] = progress;
+    return j.toStyledString();
+}
+
+std::string VM_Controller::new_vm_config(std::string vm_name,
+                                         std::string img_path,
+                                         int cpu_num,
+                                         int mem_in_mb){
+    Json::Value j;
+    tinyxml2::XMLDocument doc;
+    doc.LoadFile("template.xml");
+    tinyxml2::XMLElement *root = doc.RootElement();
+    if(root == NULL){
+        std::string error = "could not open template.xml";
+        LOG_ERROR(error);
+        j["status"] = error;
+        return j.toStyledString();
+    }
+    
+    root->FirstChildElement("name")->SetText(vm_name.c_str());
+    root->FirstChildElement("vcpu")->SetText(Tools::to_string(cpu_num, 10).c_str());
+
+    char uuid_str[37] = {0};
+    uuid_t uuid;
+    uuid_generate(uuid);
+    uuid_unparse(uuid, uuid_str);
+    
+    root->FirstChildElement("uuid")->SetText(uuid_str);
+
+    tinyxml2::XMLElement *memory = root->FirstChildElement("memory");
+    memory->SetText(Tools::to_string(mem_in_mb, 10).c_str());
+    
+    root->FirstChildElement("vcpu")
+        ->SetText(Tools::to_string(cpu_num, 10).c_str());
+
+    root->FirstChildElement("devices")
+        ->FirstChildElement("disk")
+        ->FirstChildElement("source")
+        ->SetAttribute("file", img_path.c_str());
+
+    std::string config_save_file = "/mnt/arclab_nfs/184/sdb/veka_images/";
+    config_save_file += vm_name + ".xml";
+    if(doc.SaveFile(config_save_file.c_str()) != 0){
+        j["status"] = "save config file error";
+        return j.toStyledString();
+    }
+
+    tinyxml2::XMLPrinter stream;
+    doc.Print(&stream);
+    virDomainPtr domain = virDomainDefineXML(_conn, stream.CStr());
+    if(domain == NULL){
+        j["status"] = "define domain error";
         return j.toStyledString();
     }
     else{
-        j["status"] = "download error";
+        virDomainFree(domain);
+        j["status"] = "ok";
         return j.toStyledString();
     }
 }
