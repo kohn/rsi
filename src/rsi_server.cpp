@@ -31,6 +31,13 @@ RsiServer::RsiServer(int port, SysInfo *sysinfo){
         exit(-1);
     }
     int server_sockfd = listen_port(port);
+    int keep_alive = 1;
+    if(setsockopt(server_sockfd, SOL_SOCKET,
+                  SO_KEEPALIVE, (void *)&keep_alive,
+                  sizeof(keep_alive)) == -1){
+        LOG_ERROR("Could not set keep_alive option");
+        exit(-1);
+    }
     while(1){
         int client_sockfd = accept_client(server_sockfd);
         pid_t pid = fork();

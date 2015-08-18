@@ -96,6 +96,7 @@ int RSIClient::download_img(int fd_write, std::string vm_name, int job_id){
     dargs->download_info = download_info;
     dargs->start_pos = 0ll;
     if(pthread_create(&pid, NULL, _do_download, (void *)dargs) == 0){
+        _good = -1;
         return 0;
     }
     else{
@@ -114,10 +115,16 @@ void * RSIClient::_do_download(void* args){
         read_count = read(dargs->fd_read, buf, 4096);
         // read erro
         if(read_count < 0){
+            close(dargs->fd_write);
+            delete dargs;
+            close(dargs->fd_read);
             return NULL;
         }
         else if(read_count == 0){
             if(total_count != dargs->download_info[0]){
+                close(dargs->fd_write);
+                delete dargs;
+                close(dargs->fd_read);
                 return NULL;
             }
             else
@@ -125,6 +132,9 @@ void * RSIClient::_do_download(void* args){
         }
         // write to file error
         if(write(dargs->fd_write, buf, read_count) != read_count){
+            close(dargs->fd_write);
+            delete dargs;
+            close(dargs->fd_read);
             return NULL;
         }
         total_count += read_count;
