@@ -326,7 +326,7 @@ std::string VM_Controller::fetch_image_by_name(std::string host_ip,
 
     // find a available file name for the new image
     int img_version = 0;
-    std::string imgdir = "/mnt/arclab_nfs/184/sdb/veka_images/";
+    std::string imgdir = img_store_location;
     while(1){
         std::stringstream tmpname;
         tmpname << imgdir << new_name << img_version << ".img";
@@ -404,7 +404,7 @@ std::string VM_Controller::new_vm_config(std::string vm_name,
         ->FirstChildElement("source")
         ->SetAttribute("file", img_path.c_str());
 
-    std::string config_save_file = "/mnt/arclab_nfs/184/sdb/veka_images/";
+    std::string config_save_file = img_store_location;
     config_save_file += vm_name + ".xml";
     if(doc.SaveFile(config_save_file.c_str()) != 0){
         j["status"] = "save config file error";

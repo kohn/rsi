@@ -17,6 +17,7 @@
 #include "tools.h"
 #include "globals.h"
 
+std::string img_store_location;
 int main(int argc, char *argv[])
 {
 
@@ -28,6 +29,10 @@ int main(int argc, char *argv[])
         std::map<std::string, std::string>::iterator it = config.find("port");
         if(it != config.end()){
             port = atoi((it->second).c_str());
+        }
+        it = config.find("image_store_location");
+        if(it != config.end()){
+            img_store_location = it->second;
         }
     }
     
