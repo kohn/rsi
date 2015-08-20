@@ -2,7 +2,6 @@
 #include "globals.h"
 #include <stdlib.h>
 #include "tinyxml2.h"
-#include "globals.h"
 #include "json/json.h"
 #include <vector>
 #include <fstream>
@@ -10,10 +9,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "rsi_clients.h"
 #include <cstdlib>
 #include <unistd.h>
 #include <uuid/uuid.h>
+#include <stdio.h>
 
 VM_Controller::VM_Controller(){
     _conn = virConnectOpen("qemu:///system");
@@ -25,11 +26,6 @@ VM_Controller::VM_Controller(){
 
 VM_Controller::~VM_Controller(){
     virConnectClose(_conn);
-}
-
-int VM_Controller::create_vm(int vcpu, int mem, std::string img_path){
-    
-    return 0;
 }
 
 std::string VM_Controller::open_vm(std::string name){
@@ -317,6 +313,50 @@ long long VM_Controller::get_image_size_by_name_in_ll(std::string vm_name){
         return _get_vm_image_size(dom);
 }
 
+std::string VM_Controller::_make_tmp_config_file_name(std::string vm_name){
+    std::string config_path("/tmp/");
+    return config_path+vm_name+".xml";
+}
+
+long long VM_Controller::get_image_config_size_by_name_in_ll(std::string vm_name){
+    struct stat file_stat;
+    std::string config_file = _make_tmp_config_file_name(vm_name);
+    if(stat(config_file.c_str(), &file_stat) == 0){
+        return file_stat.st_size;
+    }
+    else{
+        LOG_ERROR(strerror(errno));
+        return -1ll;
+    }
+}
+
+int VM_Controller::get_image_config_fd_by_name(std::string vm_name){
+    virDomainPtr dom = virDomainLookupByName(_conn, vm_name.c_str());
+    if(dom == NULL){
+        return -1;
+    }
+    char *domain_xml = virDomainGetXMLDesc(dom, VIR_DOMAIN_XML_SECURE);
+    virDomainFree(dom);
+    std::string config_file = _make_tmp_config_file_name(vm_name);
+    int fd = open(config_file.c_str(), O_WRONLY|O_CREAT);
+
+    int filesize = strlen(domain_xml);
+    int write_count = 0;
+    while(write_count < filesize){
+        int once_write_count = write(fd, domain_xml, filesize);
+        if(once_write_count < 0){
+            LOG_ERROR("write error");
+            close(fd);
+            return -1;
+        }
+        write_count += once_write_count;
+    }
+    close(fd);
+
+    fd = open(config_file.c_str(), O_RDONLY);
+    return fd;
+}
+
 std::string VM_Controller::fetch_image_by_name(std::string host_ip,
                                                int rsi_server_port,
                                                std::string vm_name,
@@ -344,11 +384,13 @@ std::string VM_Controller::fetch_image_by_name(std::string host_ip,
     tmpname << imgdir << new_name << img_version << ".img";
     std::string img_name = tmpname.str();
     LOG_INFO(img_name);
+    // TODO: lock the img_name in case another process use the same name
 
     int jobid = clients->download_img(host_ip, rsi_server_port, vm_name, img_name);
     j["status"] = "ok";
     j["jobid"] = jobid;
     j["imagepath"] = img_name;
+    j["configpath"] = img_name + ".xml";
     return j.toStyledString();
 }
 
@@ -370,43 +412,51 @@ std::string VM_Controller::get_job_progress(int job_id){
 
 std::string VM_Controller::new_vm_config(std::string vm_name,
                                          std::string img_path,
+                                         std::string config_path,
                                          int cpu_num,
                                          int mem_in_mb){
     Json::Value j;
     tinyxml2::XMLDocument doc;
-    doc.LoadFile("template.xml");
+    doc.LoadFile(config_path.c_str());
     tinyxml2::XMLElement *root = doc.RootElement();
     if(root == NULL){
-        std::string error = "could not open template.xml";
+        std::string error = "could not open ";
+        error += config_path;
         LOG_ERROR(error);
         j["status"] = error;
         return j.toStyledString();
     }
     
-    root->FirstChildElement("name")->SetText(vm_name.c_str());
-    root->FirstChildElement("vcpu")->SetText(Tools::to_string(cpu_num, 10).c_str());
+    tinyxml2::XMLElement *name = root->FirstChildElement("name");
+    if(name){
+        name->SetText(vm_name.c_str());
+    }
 
-    char uuid_str[37] = {0};
-    uuid_t uuid;
-    uuid_generate(uuid);
-    uuid_unparse(uuid, uuid_str);
-    
-    root->FirstChildElement("uuid")->SetText(uuid_str);
+    tinyxml2::XMLElement *vcpu = root->FirstChildElement("vcpu");
+    if(vcpu){
+        vcpu->SetText(Tools::to_string(cpu_num, 10).c_str());
+    }
+
+    tinyxml2::XMLElement *uuid = root->FirstChildElement("uuid");
+    if(uuid){
+        char uuid_str[37] = {0};
+        uuid_t uuid_v;
+        uuid_generate(uuid_v);
+        uuid_unparse(uuid_v, uuid_str);
+        uuid->SetText(uuid_str);
+    }
 
     tinyxml2::XMLElement *memory = root->FirstChildElement("memory");
-    memory->SetText(Tools::to_string(mem_in_mb, 10).c_str());
+    if(memory){
+        memory->SetText(Tools::to_string(mem_in_mb, 10).c_str());
+    }
     
-    root->FirstChildElement("vcpu")
-        ->SetText(Tools::to_string(cpu_num, 10).c_str());
-
     root->FirstChildElement("devices")
         ->FirstChildElement("disk")
         ->FirstChildElement("source")
         ->SetAttribute("file", img_path.c_str());
 
-    std::string config_save_file = img_store_location;
-    config_save_file += vm_name + ".xml";
-    if(doc.SaveFile(config_save_file.c_str()) != 0){
+    if(doc.SaveFile(config_path.c_str()) != 0){
         j["status"] = "save config file error";
         return j.toStyledString();
     }

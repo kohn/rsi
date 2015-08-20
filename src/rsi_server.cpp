@@ -161,6 +161,9 @@ int RsiServer::communicate(int client_sockfd){
         if(strings[0] == "GET_IMAGE_BY_FD"){
             return response_image_by_fd(strings, client_sockfd);
         }
+        if(strings[0] == "GET_CONFIG_BY_FD"){
+            return response_config_by_fd(strings, client_sockfd);
+        }
         // fetch image from another rsi_server
         if(strings[0] == "FETCH_IMAGE_BY_NAME"){
             return response_fetch_image_by_name(strings, client_sockfd);
@@ -296,21 +299,19 @@ int RsiServer::response_image_fd_by_name(std::vector<std::string> &strings,
     // get fd but do not close it. close it after reading.
     int fd = _vm_controller.get_image_fd_by_name(vm_name);
     long long filesize = _vm_controller.get_image_size_by_name_in_ll(vm_name);
-    s << fd << " " << filesize;
+
+    int config_fd = _vm_controller.get_image_config_fd_by_name(vm_name);
+    long long config_filesize = _vm_controller.get_image_config_size_by_name_in_ll(vm_name);
+    
+    s << fd << " " << filesize << " " << config_fd << " " << config_filesize;
     DEBUG(s.str());
     Networking::write(client_sockfd, s.str().c_str(), s.str().length());
     return 0;
 }
 
-// always return -1 after sending image, so that to close the socket
-int RsiServer::response_image_by_fd(std::vector<std::string> &strings,
+int RsiServer::response_file_by_fd(std::vector<std::string> &strings,
                                     int client_sockfd){
     std::string response;
-    if(strings.size() != 2){
-        response = _make_cmd_size_mismatch_msg("GET_IMAGE_BY_FD", 2);
-        Networking::write(client_sockfd, response.c_str(), response.length());
-        return -1;
-    }
     int fd = atoi(strings[1].c_str());
     char buffer[4096];
     while(1){
@@ -328,8 +329,34 @@ int RsiServer::response_image_by_fd(std::vector<std::string> &strings,
     response = "{\"status\": \"ok\"}";
     Networking::write(client_sockfd, response.c_str(), response.length());
     close(fd);
+    return 0;
+}
+
+// always close socket after uploading image file
+int RsiServer::response_image_by_fd(std::vector<std::string> &strings,
+                                    int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_image_BY_FD", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    response_file_by_fd(strings, client_sockfd);
+    close(client_sockfd);
     return -1;
 }
+int RsiServer::response_config_by_fd(std::vector<std::string> &strings,
+                                    int client_sockfd){
+    std::string response;
+    if(strings.size() != 2){
+        response = _make_cmd_size_mismatch_msg("GET_image_BY_FD", 2);
+        Networking::write(client_sockfd, response.c_str(), response.length());
+        return -1;
+    }
+    return response_file_by_fd(strings, client_sockfd);
+}
+
+
 int RsiServer::response_fetch_image_by_name(std::vector<std::string> &strings,
                                             int client_sockfd){
     std::string response;
@@ -364,16 +391,17 @@ int RsiServer::response_job_progress(std::vector<std::string> &strings,
 int RsiServer::response_new_vm_config(std::vector<std::string> &strings,
                                       int client_sockfd){
     std::string response;
-    if(strings.size() != 5){
+    if(strings.size() != 6){
         response = _make_cmd_size_mismatch_msg("NEW_VM_CONFIG", 5);
         Networking::write(client_sockfd, response.c_str(), response.length());
         return -1;
     }
     std::string vm_name = strings[1];
     std::string img_path = strings[2];
-    int cpu_num = atoi(strings[3].c_str());
-    int memory_in_mb = atoi(strings[4].c_str());
-    response = _vm_controller.new_vm_config(vm_name, img_path, cpu_num, memory_in_mb);
+    std::string config_path = strings[3];
+    int cpu_num = atoi(strings[4].c_str());
+    int memory_in_mb = atoi(strings[5].c_str());
+    response = _vm_controller.new_vm_config(vm_name, img_path, config_path, cpu_num, memory_in_mb);
     DEBUG(response);
     Networking::write(client_sockfd, response.c_str(), response.length());
     return 0;

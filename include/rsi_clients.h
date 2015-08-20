@@ -5,33 +5,29 @@
 #include "rsi_client.h"
 #include <vector>
 
+typedef struct{
+    char *ip;
+    int port;
+    char *vm_name;
+    char *filename;
+} download_args;
+
+
 // an RSI clients manager
 // mainly used to download VM images from other RSI servers
 class RSIClients{
 
 private:
-    std::map<std::string, RSIClient*> clients;
-    std::string _make_client_id(std::string ip, int port);
-    
-    
-    RSIClient * _new_client(std::string ip, int port);
-    
     RSIClients(){}               // make this class as singleton
     RSIClients(const RSIClients&);
     RSIClients& operator=(const RSIClients&);
 
-    std::vector<RSIClient*> client_by_jobid;
-    
-    struct download_args{
-        int fd_read;
-        int fd_write;
-        int job_id;
-        long long start_pos;    // file position start to write
-        long long filesize;
-    };
-    
+    static std::vector<RSIClient*> client_by_jobid;
+    static std::vector<int> jobs_progress;
+        
     // this function would be called in a new thread
-    void * _do_download(void* args);
+    static void * _do_download_img(void* args);
+    static void _do_download();
     
 public:
     // signleton pattern

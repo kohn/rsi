@@ -3,27 +3,26 @@
 #include <string>
 #include "globals.h"
 #include <map>
-typedef struct{
-        int fd_read;
-        int fd_write;
-        long long *download_info;
-        long long start_pos;    // file position start to write
-} download_args;
 
 class RSIClient
 {
 private:
     int _sockfd;
     int _good;
-    std::map<int, long long*> jobid_downloadinfo_map;
-    static void * _do_download(void* args);
-    
+    long long _image_size;
+    long long _image_size_downloaded;
+    bool _downloading_xml;
+    bool _dead;
+    void _do_download(int fd_write, long long size, long long &size_dowloaded);
+    std::string communicate(std::string msg);
     
 public:
     RSIClient(std::string ip, int port);
-    std::string communicate(std::string msg);
-    int download_img(int fd_write, std::string vm_name, int job_id);
-    int download_progress(int job_id);
+    int download_img(std::string vm_name, std::string filename);
+    int download_progress();
+    bool alive(){
+        return !_dead;
+    }
     int good();
     ~RSIClient();
 };

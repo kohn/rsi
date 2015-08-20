@@ -10,10 +10,10 @@ private:
     std::string get_vm_detail(virDomainPtr dom);
     std::string _get_vm_mac(virDomainPtr dom);
     std::string _get_vm_image_path(virDomainPtr dom);
+    std::string _make_tmp_config_file_name(std::string vm_name);
     long long _get_vm_image_size(virDomainPtr dom);
 
 public:
-    int create_vm(int vcpu, int mem, std::string img_path);
     /* [
      *     {
      *         "id": id,
@@ -64,9 +64,12 @@ public:
                                     std::string vm_name,
                                     std::string new_name);
     long long get_image_size_by_name_in_ll(std::string vm_name);
+    long long get_image_config_size_by_name_in_ll(std::string vm_name);
     int get_image_fd_by_name(std::string vm_name); // do remember to close the returned fd.
+    int get_image_config_fd_by_name(std::string vm_name);
     std::string get_job_progress(int job_id);
-    std::string new_vm_config(std::string vm_name, std::string img_path, int cpu_num, int mem_in_mb);
+    std::string new_vm_config(std::string vm_name, std::string img_path,
+                              std::string conifg_path, int cpu_num, int mem_in_mb);
     VM_Controller();
     ~VM_Controller();
 };

@@ -28,6 +28,10 @@ private:
                                   int client_sockfd);
     int response_image_by_fd(std::vector<std::string> &strings,
                              int client_sockfd);
+    int response_config_by_fd(std::vector<std::string> &strings,
+                             int client_sockfd);
+    int response_file_by_fd(std::vector<std::string> &strings,
+                             int client_sockfd);
     int response_fetch_image_by_name(std::vector<std::string> &strings,
                                      int client_sockfd);
     int response_job_progress(std::vector<std::string> &strings,
